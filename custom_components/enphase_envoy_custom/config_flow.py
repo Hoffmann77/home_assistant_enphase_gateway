@@ -29,13 +29,10 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> EnvoyRead
         data[CONF_HOST],
         username=data[CONF_USERNAME],
         password=data[CONF_PASSWORD],
-        enlighten_user=data[CONF_USERNAME],
-        enlighten_pass=data[CONF_PASSWORD],
+        gateway_serial_num=data[CONF_SERIAL],
+        use_token_auth=data.get(CONF_USE_ENLIGHTEN, False),
+        # async_client=get_async_client(hass),
         inverters=False,
-#        async_client=get_async_client(hass),
-        use_enlighten_owner_token=data.get(CONF_USE_ENLIGHTEN, False),
-        enlighten_serial_num=data[CONF_SERIAL],
-        https_flag='s' if data.get(CONF_USE_ENLIGHTEN,False) else ''
     )
 
     try:
@@ -87,7 +84,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         }
 
     async def async_step_zeroconf(
-        self, discovery_info: zeroconf.ZeroconfServiceInfo
+        self, 
+        discovery_info: zeroconf.ZeroconfServiceInfo
     ) -> FlowResult:
         """Handle a flow initialized by zeroconf discovery."""
         serial = discovery_info.properties["serialnum"]

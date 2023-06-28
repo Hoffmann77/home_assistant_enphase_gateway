@@ -32,15 +32,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         config[CONF_HOST],
         username=config[CONF_USERNAME],
         password=config[CONF_PASSWORD],
-        enlighten_user=config[CONF_USERNAME],
-        enlighten_pass=config[CONF_PASSWORD],
-        inverters=True,
-#        async_client=get_async_client(hass),
-        use_enlighten_owner_token=config.get(CONF_USE_ENLIGHTEN, False),
-        enlighten_serial_num=config[CONF_SERIAL],
-        https_flag='s' if config.get(CONF_USE_ENLIGHTEN, False) else ''
+        gateway_serial_num=config[CONF_SERIAL],
+        use_token_auth=config.get(CONF_USE_ENLIGHTEN, False),
+        # async_client=get_async_client(hass),
+        inverters=False,
     )
-
+    
     async def async_update_data():
         """Fetch data from API endpoint."""
         data = {}
