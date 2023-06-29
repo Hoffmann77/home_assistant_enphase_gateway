@@ -1,8 +1,8 @@
 """Provide the EnphaseToken class for the envoy_reader module."""
 
+import json
 import logging
 import asyncio
-import json
 from datetime import datetime, timezone, timedelta
 
 import httpx
@@ -55,7 +55,7 @@ class EnphaseToken:
         else:
             return False
         
-    async def check(self):
+    async def prepare(self):
         """Check the Enphase token and update token if necessary."""
         _LOGGER.debug(f"Checking Enphase token: {self._token}")
         if not self._token:
@@ -117,19 +117,19 @@ class EnphaseToken:
         return token_raw
     
     async def _async_post(self, url, **kwargs):
-        """Post using async.
+        """Send a HTTP POST request using httpx.
         
         Parameters
         ----------
         url : str
-            HTTP POST target url. 
+            Target url.
         **kwargs : dict, optional
-            Extra arguments to httpx client.post().
+            Extra arguments for httpx.client.post(**kwargs).
 
         Returns
         -------
-        r : http response
-            HTTP POST response object.
+        resp : HTTP response
+            httpx response object.
 
         """
         client = httpx.AsyncClient(verify=False, timeout=10.0)
@@ -137,10 +137,10 @@ class EnphaseToken:
             for attempt in range(1, 4):
                 _LOGGER.debug(f"HTTP POST Attempt: #{attempt}: {url}")
                 try:
-                    r = await client.post(url, **kwargs)
-                    r.raise_for_status()
-                    _LOGGER.debug(f"HTTP POST {url}: {r}: {r.text}")
-                    _LOGGER.debug(f"HTTP POST Cookie: {r.cookies}")
+                    resp = await client.post(url, **kwargs)
+                    resp.raise_for_status()
+                    _LOGGER.debug(f"HTTP POST {url}: {resp}: {resp.text}")
+                    _LOGGER.debug(f"HTTP POST Cookie: {resp.cookies}")
                 except httpx.HTTPStatusError as err:
                     status_code = err.response.status_code
                     _LOGGER.debug(
@@ -153,8 +153,4 @@ class EnphaseToken:
                     else:
                         await asyncio.sleep(attempt * 0.15)
                 else:
-                    return r
-
-
-
-                
+                    return resp

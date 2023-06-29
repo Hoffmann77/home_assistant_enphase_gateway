@@ -1,4 +1,13 @@
-This is a HACS custom integration for enphase envoys with firmware version 7.X. This integration is based off work done by @DanBeard, with some changes to report individual battery status.
+**This is a custom HACS integration for Enphase gateways with firmware version 7.X.**
+
+# Tribute
+
+This integration is based on work done by the following:
+
+*  https://github.com/jesserizzo/envoy_reader by @jesserizzo and contributors
+*  https://github.com/DanBeard/enphase_envoy by @DanBeard and contributors
+*  https://github.com/briancmpbll/home_assistant_custom_envoy by @briancmpbll and contributors
+
 
 # Installation
 
@@ -7,11 +16,18 @@ This is a HACS custom integration for enphase envoys with firmware version 7.X. 
 4. Restart home assistant
 5. Add the integration through the home assistant configuration flow
 
-[<img width="545" alt="bmc-button" src="https://user-images.githubusercontent.com/1570176/180045360-d3f479c5-ad84-4483-b2b0-83820b1a8c63.png">](https://buymeacoffee.com/briancmpblL)
 
+# Supported Gateways
+
+  - Envoy-S Metered (CT's enabled)
+  - Envoy-S Metered (CT's disabled)
+  - Envoy-S Standard
+  - Envoy-C
+  - Legacy Gateways
 
 
 # Usage
+
   - Username / Password / Use Enlighten [#73](https://github.com/briancmpbll/home_assistant_custom_envoy/issues/73)\
       When configuring the Envoy with firmware 7 or higher specify your Enphase Enlighten username and password, the envoy serial number and check the 'Use Enlighten' box at the bottom. This will allow the integration to collect a token from the enphase website and use it to access the Envoy locally. It does this at first configuration, at each HA startup or at reload of the integration. The Enphase web-site is known to be slow or satured at times. When an *Unknown Error* is reported during configuration try again until success. [#81](https://github.com/briancmpbll/home_assistant_custom_envoy/issues/81) \
       \

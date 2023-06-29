@@ -1,4 +1,5 @@
-"""Module to read production and consumption values from an Enphase Envoy on the local network."""
+"""Module to read energy related parameters from an Enphase gateway on the local network."""
+
 import argparse
 import asyncio
 import logging
@@ -10,7 +11,7 @@ import httpx
 from envoy_utils.envoy_utils import EnvoyUtils
 from homeassistant.util.network import is_ipv6_address
 
-from .enphase_token import EnphaseToken
+from ..enphase_token import EnphaseToken
 
 
 #
@@ -37,6 +38,7 @@ ENDPOINT_URL_HOME_JSON = "{}://{}/home.json"
 
 _LOGGER = logging.getLogger(__name__)
 
+# Endpoints used to fetch data.
 GATEWAY_ENDPOINTS = {
     'ENVOY_MODEL_S_METERED': {
         "production_json": ENDPOINT_URL_PRODUCTION_JSON,
@@ -44,9 +46,9 @@ GATEWAY_ENDPOINTS = {
         "home_json": ENDPOINT_URL_HOME_JSON,
     },
     'ENVOY_MODEL_S_STANDARD': {
-        "production_json": ENDPOINT_URL_PRODUCTION_JSON,
-        "ensemble_json": ENDPOINT_URL_ENSEMBLE_INVENTORY,
+        # "production_json": ENDPOINT_URL_PRODUCTION_JSON,
         "production_v1": ENDPOINT_URL_PRODUCTION_V1,
+        "ensemble_json": ENDPOINT_URL_ENSEMBLE_INVENTORY,
         "home_json": ENDPOINT_URL_HOME_JSON,
     },
     'ENVOY_MODEL_C': {
@@ -57,7 +59,7 @@ GATEWAY_ENDPOINTS = {
     }
 }
 
-# Endpoints used to detect the Envoy Model.
+# Endpoints used to detect the type of gateway.
 GATEWAY_DETECTION_ENDPOINTS = {
     "ENVOY_MODEL_S": {
         "production_json": ENDPOINT_URL_PRODUCTION_JSON,
@@ -71,14 +73,14 @@ GATEWAY_DETECTION_ENDPOINTS = {
 }
 
 
-def has_production_and_consumption(json):
+def has_production_and_consumption(_json):
     """Check if json has keys for both production and consumption."""
-    return "production" in json and "consumption" in json
+    return "production" in _json and "consumption" in _json
 
 
-def has_metering_setup(json):
+def has_metering_setup(_json):
     """Check if Active Count of Production CTs (eim) installed is greater than one."""
-    return True if json["production"][1]["activeCount"] > 0 else False
+    return True if _json["production"][1]["activeCount"] > 0 else False
 
 
 class SwitchToHTTPS(Exception):
@@ -90,7 +92,7 @@ class SwitchToHTTPS(Exception):
 class EnvoyReader:
     """Instance of EnvoyReader."""
 
-    messages = {
+    MESSAGES = {
         "daily_production_not_available": 
             "Daily production data not available for your Envoy device.",
         "seven_day_production_not_available": 
@@ -176,7 +178,7 @@ class EnvoyReader:
         """
         # Check if the Secure flag is set
         if self.use_token_auth:
-            self._enphase_token.check()
+            self._enphase_token.prepare()
 
         if not self.gateway_type:
             await self._setup_gateway()
@@ -558,7 +560,7 @@ class EnvoyReader:
             if self.meters_enabled:
                 daily_production = raw_json["production"][1]["whToday"]
             else:
-                return self.messages["daily_production_not_available"]
+                return self.MESSAGES["daily_production_not_available"]
         
         elif self.gateway_type in {"ENVOY_MODEL_S_STANDARD", "ENVOY_MODEL_C"}:
             raw_json = self.endpoint_results["production_v1"].json()
@@ -604,7 +606,7 @@ class EnvoyReader:
             if self.meters_enabled:
                 seven_days_production = raw_json["production"][1]["whLastSevenDays"]
             else:
-                return self.messages["seven_day_production_not_available"]
+                return self.MESSAGES["seven_day_production_not_available"]
         
         elif self.gateway_type in {"ENVOY_MODEL_S_STANDARD", "ENVOY_MODEL_C"}:
             raw_json = self.endpoint_results["production_v1"].json()
@@ -691,7 +693,7 @@ class EnvoyReader:
             raw_json = self.endpoint_results["production_json"].json()
             consumption = raw_json["consumption"][0]["wNow"]
         else:
-            return self.messages["consumption_not_available"]
+            return self.MESSAGES["consumption_not_available"]
         return int(consumption)
 
     async def daily_consumption(self):
@@ -714,7 +716,7 @@ class EnvoyReader:
             raw_json = self.endpoint_results["production_json"].json()
             daily_consumption = raw_json["consumption"][0]["whToday"]
         else:
-            return self.messages["consumption_not_available"]
+            return self.MESSAGES["consumption_not_available"]
         return int(daily_consumption)
 
     async def seven_days_consumption(self):
@@ -737,7 +739,7 @@ class EnvoyReader:
             raw_json = self.endpoint_results["production_json"].json()
             seven_days_consumption = raw_json["consumption"][0]["whLastSevenDays"]
         else:
-            return self.messages["consumption_not_available"]
+            return self.MESSAGES["consumption_not_available"]
         return int(seven_days_consumption)
 
     async def lifetime_consumption(self):
@@ -760,7 +762,7 @@ class EnvoyReader:
             raw_json = self.endpoint_results["production_json"].json()
             lifetime_consumption = raw_json["consumption"][0]["whLifetime"]
         else:
-            return self.messages["consumption_not_available"]
+            return self.MESSAGES["consumption_not_available"]
         return int(lifetime_consumption)
         
     async def inverters_production(self):
@@ -814,7 +816,7 @@ class EnvoyReader:
                 ensemble_json = self.endpoint_results["ensemble_json"].json()
                 if len(ensemble_json) > 0 and "devices" in ensemble_json[0].keys():
                     return ensemble_json[0]["devices"]
-            return self.messages["battery_not_available"]
+            return self.MESSAGES["battery_not_available"]
         
         return raw_json["storage"][0]
 
@@ -825,7 +827,7 @@ class EnvoyReader:
             if "enpower" in home_json.keys() and "grid_status" in home_json["enpower"].keys():
                 return home_json["enpower"]["grid_status"]
         
-        return self.messages["grid_status_not_available"]
+        return self.MESSAGES["grid_status_not_available"]
 
 
     def run_in_console(self):

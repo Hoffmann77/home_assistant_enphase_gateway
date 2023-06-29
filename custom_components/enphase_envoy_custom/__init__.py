@@ -1,14 +1,12 @@
 """The Enphase Envoy integration."""
 from __future__ import annotations
 
-from datetime import timedelta
 import logging
+from datetime import timedelta
 
-import async_timeout
-from .envoy_reader import EnvoyReader
 import httpx
+import async_timeout
 from numpy import isin
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
@@ -16,6 +14,8 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import COORDINATOR, DOMAIN, NAME, PLATFORMS, SENSORS, CONF_USE_ENLIGHTEN, CONF_SERIAL
+from .gateway_reader import EnvoyReader
+
 
 SCAN_INTERVAL = timedelta(seconds=60)
 
@@ -24,7 +24,6 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Enphase Envoy from a config entry."""
-
     config = entry.data
     name = config[CONF_NAME]
 
@@ -35,7 +34,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         gateway_serial_num=config[CONF_SERIAL],
         use_token_auth=config.get(CONF_USE_ENLIGHTEN, False),
         # async_client=get_async_client(hass),
-        inverters=False,
+        inverters=True,
     )
     
     async def async_update_data():
