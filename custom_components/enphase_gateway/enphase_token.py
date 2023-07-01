@@ -18,10 +18,17 @@ ENLIGHTEN_TOKEN_URL = "https://entrez.enphaseenergy.com/tokens"
 class EnphaseToken:
     """Enphase Token."""
     
-    def __init__(self, enlighten_username, enlighten_password, filepath=None):
+    def __init__(
+            self, 
+            enlighten_username, 
+            enlighten_password, 
+            gateway_serial_num, 
+            filepath=None
+        ):
         """Initialize EnphaseToken."""
         self.enlighten_username = enlighten_username
         self.enlighten_password = enlighten_password
+        self.gateway_serial_num = gateway_serial_num
         self.expiration_date = None
         self._filepath = filepath
         self._token = None
@@ -77,7 +84,7 @@ class EnphaseToken:
         """
         token_raw = await self._fetch_enphase_token()
         decoded = await self._decode_token(token_raw)
-        self._setup_token_raw(token_raw)
+        #self._setup_token_raw(token_raw)
         self._token = token_raw
         self._type = decoded["enphaseUser"]
         self.expiration_date = datetime.fromtimestamp(
@@ -89,9 +96,9 @@ class EnphaseToken:
         """Decode the JWT token and return the decoded token dict."""
         try:
             decoded = jwt.decode(
-                token, 
+                token,
                 algorithms=["ES256"],
-                options={"verify_signature": False}, 
+                options={"verify_signature": False},
             )
         except jwt.exceptions.InvalidTokenError as err:
             _LOGGER.debug(f"Decoding of Enphase token failed: {token}")
@@ -102,15 +109,15 @@ class EnphaseToken:
     async def _fetch_enphase_token(self):
         """Fetch the Enphase token from Enlighten."""
         payload = {
-            'user[email]': self.enlighten_user, 
-            'user[password]': self.enlighten_pass
+            'user[email]': self.enlighten_username, 
+            'user[password]': self.enlighten_password
         }
         response = await self._async_post(ENLIGHTEN_LOGIN_URL, data=payload)
         response_data = json.loads(response.text)
         payload = {
             'session_id': response_data['session_id'],
-            'serial_num': self.enlighten_serial_num,
-            'username': self.enlighten_user
+            'serial_num': self.gateway_serial_num,
+            'username': self.enlighten_username
         }
         response = await self._async_post(ENLIGHTEN_TOKEN_URL, json=payload)
         token_raw = response.text

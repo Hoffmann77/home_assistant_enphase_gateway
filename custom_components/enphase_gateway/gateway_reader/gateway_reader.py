@@ -89,7 +89,7 @@ class SwitchToHTTPS(Exception):
     pass
 
 
-class EnvoyReader:
+class GatewayReader:
     """Instance of EnvoyReader."""
 
     MESSAGES = {
@@ -106,16 +106,16 @@ class EnvoyReader:
     }
 
     def __init__(
-        self,
-        host,
-        username="envoy",
-        password="",
-        gateway_serial_num=None,
-        use_token_auth=False,
-        token_filepath=None,
-        inverters=False,
-        async_client=None,
-    ):
+            self,
+            host,
+            username="envoy",
+            password="",
+            gateway_serial_num=None,
+            use_token_auth=False,
+            token_filepath=None,
+            inverters=False,
+            async_client=None,
+        ):
         """Init the EnvoyReader."""
         self.host = host.lower()
         if is_ipv6_address(self.host):
@@ -132,21 +132,25 @@ class EnvoyReader:
         self._cookies = None
         self._protocol = "https" if use_token_auth else "http"
         if self.use_token_auth:
-            self._enphase_token = EnphaseToken(username, password)
+            self._enphase_token = EnphaseToken(
+                username, 
+                password, 
+                gateway_serial_num
+            )
         else:
             self._enphase_token = None
 
     @property
     def async_client(self):
         """Return async http client.
-        
+
         Defaults to httpx async client.
-        
+
         Returns
         -------
         async_client
             Async http client.
-            
+
         """
         return self._async_client or httpx.AsyncClient(
             verify=False,
@@ -165,7 +169,7 @@ class EnvoyReader:
 
     async def getData(self, getInverters=True):
         """Fetch data from the endpoint.
-        
+
         Parameters
         ----------
         getInverters : bool, optional
@@ -178,7 +182,7 @@ class EnvoyReader:
         """
         # Check if the Secure flag is set
         if self.use_token_auth:
-            self._enphase_token.prepare()
+            await self._enphase_token.prepare()
 
         if not self.gateway_type:
             await self._setup_gateway()
@@ -274,7 +278,7 @@ class EnvoyReader:
                 except httpx.HTTPStatusError as err:
                     status_code = err.response.status_code
                     _LOGGER.debug(
-                        f"Received status_code {status_code} from Envoy."
+                        f"Received status_code {status_code} from Gateway."
                     )
                     if status_code == 401 and handle_401:
                         _LOGGER.debug("Trying to refresh token.")
@@ -289,7 +293,7 @@ class EnvoyReader:
                             )
                     elif status_code == 503:
                         raise RuntimeError(
-                            "Envoy Service temporary unavailable (503)."
+                            "Gateway temporary unavailable (503)."
                         )
                     else:
                         raise

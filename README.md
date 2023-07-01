@@ -1,12 +1,7 @@
-**This is a custom HACS integration for Enphase gateways with firmware version 7.X.**
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 
-# Tribute
 
-This integration is based on work done by the following:
-
-*  https://github.com/jesserizzo/envoy_reader by @jesserizzo and contributors
-*  https://github.com/DanBeard/enphase_envoy by @DanBeard and contributors
-*  https://github.com/briancmpbll/home_assistant_custom_envoy by @briancmpbll and contributors
+**This is a custom HACS integration for Enphase Gateways with firmware version 7.X.**
 
 
 # Installation
@@ -19,8 +14,7 @@ This integration is based on work done by the following:
 
 # Supported Gateways
 
-  - Envoy-S Metered (CT's enabled)
-  - Envoy-S Metered (CT's disabled)
+  - Envoy-S Metered (with CT's enabled or disabled)
   - Envoy-S Standard
   - Envoy-C
   - Legacy Gateways
@@ -40,3 +34,12 @@ This integration is based on work done by the following:
       To solve this and prevent this from happening again, remove the Envoy in the Integrations panel, restart HA and configure the Envoy again with the IPv4 address. This may require to change the IP address to the IPv4 on the auto detected Envoy or add manually an Envoy Integration. \
       \
       Then open the *System options* on the Envoy Integrations menu (3 vertical dots). In the System options panel de-activate the *Enable Newly Added Entities* option to turn it off. This will cause the Envoy Intgeration to ignore autodetect updates and keep the configured IP address. Make sure the Envoy is using a fixed IP address to avoid loosing connection if it changes its IP.
+
+
+# Tribute
+
+This integration is based on work done by the following:
+
+*  https://github.com/jesserizzo/envoy_reader by @jesserizzo and contributors
+*  https://github.com/DanBeard/enphase_envoy by @DanBeard and contributors
+*  https://github.com/briancmpbll/home_assistant_custom_envoy by @briancmpbll and contributors

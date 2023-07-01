@@ -15,7 +15,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
 from .const import DOMAIN, CONF_SERIAL, CONF_USE_ENLIGHTEN
-from .gateway_reader import EnvoyReader
+from .gateway_reader import GatewayReader
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,9 +23,9 @@ _LOGGER = logging.getLogger(__name__)
 ENVOY = "Envoy"
 
 
-async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> EnvoyReader:
+async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> GatewayReader:
     """Validate the user input allows us to connect."""
-    envoy_reader = EnvoyReader(
+    gateway_reader = GatewayReader(
         data[CONF_HOST],
         username=data[CONF_USERNAME],
         password=data[CONF_PASSWORD],
@@ -36,13 +36,13 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> EnvoyRead
     )
 
     try:
-        await envoy_reader.getData()
+        await gateway_reader.getData()
     except httpx.HTTPStatusError as err:
         raise InvalidAuth from err
     except (RuntimeError, httpx.HTTPError) as err:
         raise CannotConnect from err
 
-    return envoy_reader
+    return gateway_reader
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -132,11 +132,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return f"{ENVOY} {self.unique_id}"
         return ENVOY
 
-    async def _async_set_unique_id_from_envoy(self, envoy_reader: EnvoyReader) -> bool:
+    async def _async_set_unique_id_from_envoy(self, gateway_reader: GatewayReader) -> bool:
         """Set the unique id by fetching it from the envoy."""
         serial = None
         with contextlib.suppress(httpx.HTTPError):
-            serial = await envoy_reader.get_full_serial_number()
+            serial = await gateway_reader.get_full_serial_number()
         if serial:
             await self.async_set_unique_id(serial)
             return True
@@ -155,7 +155,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ):
                 return self.async_abort(reason="already_configured")
             try:
-                envoy_reader = await validate_input(self.hass, user_input)
+                gateway_reader = await validate_input(self.hass, user_input)
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
@@ -175,7 +175,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     return self.async_abort(reason="reauth_successful")
 
                 if not self.unique_id and await self._async_set_unique_id_from_envoy(
-                    envoy_reader
+                    gateway_reader
                 ):
                     data[CONF_NAME] = self._async_envoy_name()
 

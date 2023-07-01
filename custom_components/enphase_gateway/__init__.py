@@ -14,7 +14,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import COORDINATOR, DOMAIN, NAME, PLATFORMS, SENSORS, CONF_USE_ENLIGHTEN, CONF_SERIAL
-from .gateway_reader import EnvoyReader
+from .gateway_reader import GatewayReader
 
 
 SCAN_INTERVAL = timedelta(seconds=60)
@@ -23,11 +23,11 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Enphase Envoy from a config entry."""
+    """Set up Enphase Gateway from a config entry."""
     config = entry.data
     name = config[CONF_NAME]
 
-    envoy_reader = EnvoyReader(
+    gateway_reader = GatewayReader(
         config[CONF_HOST],
         username=config[CONF_USERNAME],
         password=config[CONF_PASSWORD],
@@ -42,7 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         data = {}
         async with async_timeout.timeout(30):
             try:
-                await envoy_reader.getData()
+                await gateway_reader.getData()
             except httpx.HTTPStatusError as err:
                 raise ConfigEntryAuthFailed from err
             except httpx.HTTPError as err:
@@ -52,10 +52,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 if description.key == "inverters":
                     data[
                         "inverters_production"
-                    ] = await envoy_reader.inverters_production()
+                    ] = await gateway_reader.inverters_production()
 
                 elif description.key == "batteries":
-                    battery_data = await envoy_reader.battery_storage()
+                    battery_data = await gateway_reader.battery_storage()
                     if isinstance(battery_data, list) and len(battery_data) > 0:
                         battery_dict = {}
                         for item in battery_data:
@@ -65,10 +65,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
                 elif (description.key not in ["current_battery_capacity", "total_battery_percentage"]):
                     data[description.key] = await getattr(
-                        envoy_reader, description.key
+                        gateway_reader, description.key
                     )()
 
-            data["grid_status"] = await envoy_reader.grid_status()
+            data["grid_status"] = await gateway_reader.grid_status()
 
             _LOGGER.debug("Retrieved data from API: %s", data)
 
@@ -85,12 +85,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await coordinator.async_config_entry_first_refresh()
     except ConfigEntryAuthFailed:
-        envoy_reader.get_inverters = False
+        gateway_reader.get_inverters = False
         await coordinator.async_config_entry_first_refresh()
 
     if not entry.unique_id:
         try:
-            serial = await envoy_reader.get_full_serial_number()
+            serial = await gateway_reader.get_full_serial_number()
         except httpx.HTTPError:
             pass
         else:

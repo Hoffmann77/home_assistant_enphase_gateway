@@ -12,7 +12,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import ENERGY_WATT_HOUR, POWER_WATT, Platform, PERCENTAGE
 
-DOMAIN = "enphase_envoy"
+DOMAIN = "enphase_gateway"
 
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
 

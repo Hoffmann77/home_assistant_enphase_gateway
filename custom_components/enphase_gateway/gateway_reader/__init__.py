@@ -1,1 +1,1 @@
-from .gateway_reader import EnvoyReader
+from .gateway_reader import GatewayReader
