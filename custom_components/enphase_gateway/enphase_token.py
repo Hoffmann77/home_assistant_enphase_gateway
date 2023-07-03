@@ -66,15 +66,15 @@ class EnphaseToken:
         """Check the Enphase token and update token if necessary."""
         _LOGGER.debug(f"Checking Enphase token: {self._token}")
         if not self._token:
-            _LOGGER.debug("Found empty token: {self._token}")
-            await self._update_token()
+            _LOGGER.debug("Found empty token - Retrieving new token")
+            await self.update()
         else:
-            _LOGGER.debug("Token is populated: {self._token}")    
+            _LOGGER.debug(f"Token is populated: {self._token}")
             if not self.is_valid:
                 _LOGGER.debug("Found Expired token - Retrieving new token")
-                await self._update_token() 
+                await self.update() 
         
-    async def _update_token(self):
+    async def update(self):
         """Update the token.
         
         Returns
@@ -82,15 +82,17 @@ class EnphaseToken:
         None.
 
         """
+        _LOGGER.debug("Updating Enphase Token.")
         token_raw = await self._fetch_enphase_token()
         decoded = await self._decode_token(token_raw)
-        #self._setup_token_raw(token_raw)
         self._token = token_raw
         self._type = decoded["enphaseUser"]
         self.expiration_date = datetime.fromtimestamp(
             decoded["exp"], tz=timezone.utc
         )
-        _LOGGER.debug(f"New Enphase Token valid until: {self.expiration_date}")
+        _LOGGER.debug(
+            f"New Enphase {self._type} Token valid until: {self.expiration_date}"
+        )
         
     async def _decode_token(self, token):
         """Decode the JWT token and return the decoded token dict."""
@@ -108,6 +110,7 @@ class EnphaseToken:
 
     async def _fetch_enphase_token(self):
         """Fetch the Enphase token from Enlighten."""
+        _LOGGER.debug("Fetching new token from Enlighten.")
         payload = {
             'user[email]': self.enlighten_username, 
             'user[password]': self.enlighten_password
@@ -120,8 +123,7 @@ class EnphaseToken:
             'username': self.enlighten_username
         }
         response = await self._async_post(ENLIGHTEN_TOKEN_URL, json=payload)
-        token_raw = response.text
-        return token_raw
+        return response.text
     
     async def _async_post(self, url, **kwargs):
         """Send a HTTP POST request using httpx.
@@ -142,12 +144,12 @@ class EnphaseToken:
         client = httpx.AsyncClient(verify=False, timeout=10.0)
         async with client:
             for attempt in range(1, 4):
-                _LOGGER.debug(f"HTTP POST Attempt: #{attempt}: {url}")
+                _LOGGER.debug(f"HTTP POST Attempt #{attempt}: {url}")
                 try:
                     resp = await client.post(url, **kwargs)
-                    resp.raise_for_status()
                     _LOGGER.debug(f"HTTP POST {url}: {resp}: {resp.text}")
                     _LOGGER.debug(f"HTTP POST Cookie: {resp.cookies}")
+                    resp.raise_for_status()
                 except httpx.HTTPStatusError as err:
                     status_code = err.response.status_code
                     _LOGGER.debug(

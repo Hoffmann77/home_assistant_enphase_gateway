@@ -135,7 +135,7 @@ class GatewayReader:
             self._enphase_token = EnphaseToken(
                 username, 
                 password, 
-                gateway_serial_num
+                gateway_serial_num,
             )
         else:
             self._enphase_token = None
@@ -281,22 +281,26 @@ class GatewayReader:
                         f"Received status_code {status_code} from Gateway."
                     )
                     if status_code == 401 and handle_401:
-                        _LOGGER.debug("Trying to refresh token.")
+                        _LOGGER.debug(f"Request header: {self._auth_header}.")
+                        _LOGGER.debug("Trying to update token.")
                         try:
-                            self._update_token()
-                        except:
-                            _LOGGER.debug("Error Trying to refresh token.")
+                            self.enphase_token.update()
+                        except Exception as exc:
+                            _LOGGER.debug(
+                                f"Error while trying to update token: {exc}"
+                            )
+                            _LOGGER.debug("Raising initial 401 Error:")
                             raise err
                         else:
-                            return(
-                                self._async_get(url, handle_401=False, **kwargs)
+                            return await self._async_get(
+                                url, handle_401=False, **kwargs
                             )
                     elif status_code == 503:
                         raise RuntimeError(
                             "Gateway temporary unavailable (503)."
                         )
                     else:
-                        raise
+                        raise err
                 except httpx.TransportError:
                     if attempt >= 3:
                         _LOGGER.debug(
@@ -305,59 +309,60 @@ class GatewayReader:
                         raise
                     else:
                         await asyncio.sleep(attempt * 0.15)
+                        continue
                 else:
                     _LOGGER.debug(f"Fetched from {url}: {r}: {r.text}")
                     return r    
     
-    async def _async_post(self, url, retries=2, raise_for_status=True, **kwargs):
-        """Post using async.
+    # async def _async_post(self, url, retries=2, raise_for_status=True, **kwargs):
+    #     """Post using async.
         
-        Parameters
-        ----------
-        url : str
-            HTTP POST target url.
-        retries : int, optional
-            Number of retries to perform after the initial post request fails. 
-            The default is 2.
-        raise_for_status : bool, optional
-            If True raise an exception for non 2xx responses.
-            The default is True.
-        **kwargs : dict, optional
-            Extra arguments to httpx client.post().
+    #     Parameters
+    #     ----------
+    #     url : str
+    #         HTTP POST target url.
+    #     retries : int, optional
+    #         Number of retries to perform after the initial post request fails. 
+    #         The default is 2.
+    #     raise_for_status : bool, optional
+    #         If True raise an exception for non 2xx responses.
+    #         The default is True.
+    #     **kwargs : dict, optional
+    #         Extra arguments to httpx client.post().
 
-        Returns
-        -------
-        r : http response
-            HTTP POST response object.
+    #     Returns
+    #     -------
+    #     r : http response
+    #         HTTP POST response object.
 
-        """
-        async with self.async_client as client:
-            for attempt in range(1, retries+1):
-                _LOGGER.debug(f"HTTP POST Attempt: #{attempt}: {url}")
-                try:
-                    r = await client.post(url, **kwargs)
-                    if raise_for_status:
-                        r.raise_for_status()
-                    _LOGGER.debug(f"HTTP POST {url}: {r}: {r.text}")
-                    _LOGGER.debug(f"HTTP POST Cookie: {r.cookies}")
-                except httpx.HTTPStatusError as err:
-                    status_code = err.response.status_code
-                    _LOGGER.debug(
-                        f"Received status_code {status_code} from Envoy."
-                    )
-                    if status_code == 503:
-                        raise RuntimeError(
-                            "Envoy Service temporary unavailable (503)"
-                        )
-                    else:
-                        raise
-                except httpx.TransportError:
-                    if attempt >= retries + 1:
-                        raise
-                    else:
-                        await asyncio.sleep(attempt * 0.15)
-                else:
-                    return r
+    #     """
+    #     async with self.async_client as client:
+    #         for attempt in range(1, retries+1):
+    #             _LOGGER.debug(f"HTTP POST Attempt: #{attempt}: {url}")
+    #             try:
+    #                 r = await client.post(url, **kwargs)
+    #                 _LOGGER.debug(f"HTTP POST {url}: {r}: {r.text}")
+    #                 _LOGGER.debug(f"HTTP POST Cookie: {r.cookies}")
+    #                 if raise_for_status:
+    #                     r.raise_for_status()
+    #             except httpx.HTTPStatusError as err:
+    #                 status_code = err.response.status_code
+    #                 _LOGGER.debug(
+    #                     f"Received status_code {status_code} from Envoy."
+    #                 )
+    #                 if status_code == 503:
+    #                     raise RuntimeError(
+    #                         "Envoy Service temporary unavailable (503)"
+    #                     )
+    #                 else:
+    #                     raise
+    #             except httpx.TransportError:
+    #                 if attempt >= retries + 1:
+    #                     raise
+    #                 else:
+    #                     await asyncio.sleep(attempt * 0.15)
+    #             else:
+    #                 return r
         
     async def _setup_gateway(self):
         """Try to detect and setup the Enphase Gateway.
@@ -378,6 +383,7 @@ class GatewayReader:
         None.
 
         """
+        _LOGGER.debug("Setup Enphase gateway")
         # If a password was not given as an argument when instantiating
         # the EnvoyReader object than use the last six numbers of the serial
         # number as the password. Otherwise use the password argument value.
@@ -412,7 +418,7 @@ class GatewayReader:
                     Please enter the needed Enlighten credentials during setup.
                     """
                 )
-    
+
         try:
             self.endpoint_results = {}
             await self._update(detection=True, gateway_type="ENVOY_MODEL_C")
@@ -424,13 +430,13 @@ class GatewayReader:
                 self.gateway_type = "ENVOY_MODEL_C"
                 self.endpoint_results = {}
                 return
-    
+
         try:
             self.endpoint_results = {}
             await self._update(detection=True, gateway_type="ENVOY_MODEL_LEGACY")
         except httpx.HTTPError:
             pass
-        
+
         if production := self.endpoint_results.get("production_legacy"):
             if production.status_code == 200:
                 self.gateway_type = "ENVOY_MODEL_LEGACY"
@@ -803,7 +809,7 @@ class GatewayReader:
     async def battery_storage(self):
         """Return battery data from Envoys that support and have batteries installed."""
         if self.gateway_type in {"ENVOY_MODEL_C", "ENVOY_MODEL_LEGACY"}:
-            return self.message_battery_not_available
+            return self.MESSAGES["battery_not_available"]
 
         try:
             raw_json = self.endpoint_results["production_json"].json()
