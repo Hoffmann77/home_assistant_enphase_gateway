@@ -249,7 +249,8 @@ class GatewayReader:
         )
         self.endpoint_results[key] = response
     
-    async def _async_get(self, url, handle_401=True, **kwargs):
+    async def _async_get(
+            self, url, handle_401=True, raise_for_status=True, **kwargs):
         """Fetch endpoint and retry in case of a transport error.
         
         Parameters
@@ -276,7 +277,8 @@ class GatewayReader:
                     r = await client.get(
                         url, headers=self._auth_header, **kwargs
                     )
-                    r.raise_for_status()
+                    if self.raise_for_status:
+                        r.raise_for_status()
                 except httpx.HTTPStatusError as err:
                     status_code = err.response.status_code
                     _LOGGER.debug(
@@ -286,7 +288,7 @@ class GatewayReader:
                         _LOGGER.debug(f"Request header: {self._auth_header}")
                         _LOGGER.debug("Trying to update token")
                         try:
-                            self._enphase_token.update()
+                            await self._enphase_token.update()
                         except Exception as exc:
                             _LOGGER.debug(
                                 f"Error while trying to update token: {exc}"
@@ -385,6 +387,8 @@ class GatewayReader:
         None.
 
         """
+        # TODO: If error 401 while fetching production.json wrong classification
+        
         _LOGGER.debug("Setup Enphase gateway")
         # If a password was not given as an argument when instantiating
         # the EnvoyReader object than use the last six numbers of the serial
