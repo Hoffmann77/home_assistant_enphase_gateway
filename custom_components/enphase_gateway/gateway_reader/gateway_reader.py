@@ -180,6 +180,8 @@ class GatewayReader:
         None.
 
         """
+        # TODO check that token is valid. No token race condition
+        
         # Check if the Secure flag is set
         if self.use_token_auth:
             await self._enphase_token.prepare()
@@ -278,13 +280,13 @@ class GatewayReader:
                 except httpx.HTTPStatusError as err:
                     status_code = err.response.status_code
                     _LOGGER.debug(
-                        f"Received status_code {status_code} from Gateway."
+                        f"Received status_code {status_code} from Gateway"
                     )
                     if status_code == 401 and handle_401:
-                        _LOGGER.debug(f"Request header: {self._auth_header}.")
-                        _LOGGER.debug("Trying to update token.")
+                        _LOGGER.debug(f"Request header: {self._auth_header}")
+                        _LOGGER.debug("Trying to update token")
                         try:
-                            self.enphase_token.update()
+                            self._enphase_token.update()
                         except Exception as exc:
                             _LOGGER.debug(
                                 f"Error while trying to update token: {exc}"
