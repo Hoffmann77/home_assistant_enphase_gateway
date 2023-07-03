@@ -20,9 +20,9 @@ class EnphaseToken:
     
     def __init__(
             self, 
-            enlighten_username, 
-            enlighten_password, 
-            gateway_serial_num, 
+            enlighten_username,
+            enlighten_password,
+            gateway_serial_num,
             filepath=None
         ):
         """Initialize EnphaseToken."""
@@ -153,7 +153,7 @@ class EnphaseToken:
                 except httpx.HTTPStatusError as err:
                     status_code = err.response.status_code
                     _LOGGER.debug(
-                        f"Received status_code {status_code} from Envoy."
+                        f"Received status_code {status_code} from Gateway."
                     )
                     raise err
                 except httpx.TransportError:
