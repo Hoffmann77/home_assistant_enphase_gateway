@@ -277,7 +277,7 @@ class GatewayReader:
                     r = await client.get(
                         url, headers=self._auth_header, **kwargs
                     )
-                    if self.raise_for_status:
+                    if raise_for_status:
                         r.raise_for_status()
                 except httpx.HTTPStatusError as err:
                     status_code = err.response.status_code
