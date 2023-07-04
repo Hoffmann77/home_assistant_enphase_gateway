@@ -288,7 +288,7 @@ class GatewayReader:
                         _LOGGER.debug(f"Request header: {self._auth_header}")
                         _LOGGER.debug("Trying to update token")
                         try:
-                            await self._enphase_token.update()
+                            await self._enphase_token.refresh()
                         except Exception as exc:
                             _LOGGER.debug(
                                 f"Error while trying to update token: {exc}"
