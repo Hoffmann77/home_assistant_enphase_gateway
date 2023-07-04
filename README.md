@@ -3,12 +3,12 @@
 
 **This is a custom HACS integration for Enphase Gateways with firmware version 7.X.**
 
-Please be aware that this custom integration **does not** overwrite the "enphase_envoy" core integration.
+Please be aware that this custom integration **does not** overwrite the "enphase_envoy" core integration. See [Limitations](#limitations) for further information.
 
 # Installation
 #### Prerequisites:
 Please make sure that the "enphase_envoy" core integration or custom integrations that overwrite the core integration are disabled.   
-This can result in unexpected behaviour and errors otherwise.
+Running two or more integrations accessing your Enphase gateway will result in unexpected behaviour and errors.
 
 #### Installation:
 1. Install [HACS](https://hacs.xyz/) if you haven't already
@@ -39,9 +39,12 @@ This can result in unexpected behaviour and errors otherwise.
       \
       Then open the *System options* on the Envoy Integrations menu (3 vertical dots). In the System options panel de-activate the *Enable Newly Added Entities* option to turn it off. This will cause the Envoy Intgeration to ignore autodetect updates and keep the configured IP address. Make sure the Envoy is using a fixed IP address to avoid loosing connection if it changes its IP.
 
+
 # Limitations
-This custom integration uses a different domain than the "enphase_envoy" core integration.   
-Thereby it **does not** overwrite the "enphase_envoy" core integration.
+* #### Multiple integrations
+  - This custom integration uses a different domain than the "enphase_envoy" core integration.   
+  - Thereby it **does not** overwrite the "enphase_envoy" core integration.   
+  - Running two or more integrations accessing your Enphase gateway will result in unexpected behaviour and errors.
 
 
 # Tribute
