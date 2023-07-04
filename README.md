@@ -3,9 +3,14 @@
 
 **This is a custom HACS integration for Enphase Gateways with firmware version 7.X.**
 
+Please be aware that this custom integration **does not** overwrite the "enphase_envoy" core integration.
 
 # Installation
+#### Prerequisites:
+Please make sure that the "enphase_envoy" core integration or custom integrations that overwrite the core integration are disabled.   
+This can result in unexpected behaviour and errors otherwise.
 
+#### Installation:
 1. Install [HACS](https://hacs.xyz/) if you haven't already
 2. Add this repository as a [custom integration repository](https://hacs.xyz/docs/faq/custom_repositories) in HACS
 4. Restart home assistant
@@ -17,7 +22,6 @@
   - Envoy-S Metered (with CT's enabled or disabled)
   - Envoy-S Standard
   - Envoy-C
-  - Legacy Gateways
 
 
 # Usage
@@ -34,6 +38,10 @@
       To solve this and prevent this from happening again, remove the Envoy in the Integrations panel, restart HA and configure the Envoy again with the IPv4 address. This may require to change the IP address to the IPv4 on the auto detected Envoy or add manually an Envoy Integration. \
       \
       Then open the *System options* on the Envoy Integrations menu (3 vertical dots). In the System options panel de-activate the *Enable Newly Added Entities* option to turn it off. This will cause the Envoy Intgeration to ignore autodetect updates and keep the configured IP address. Make sure the Envoy is using a fixed IP address to avoid loosing connection if it changes its IP.
+
+# Limitations
+This custom integration uses a different domain than the "enphase_envoy" core integration.   
+Thereby it **does not** overwrite the "enphase_envoy" core integration.
 
 
 # Tribute
