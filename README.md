@@ -3,12 +3,13 @@
 
 **This is a custom HACS integration for Enphase Gateways with firmware version 7.X.**
 
-Please be aware that this custom integration **does not** overwrite the "enphase_envoy" core integration. See [Limitations](#limitations) for further information.
+Please be aware that this custom integration **does not** overwrite the "enphase_envoy" core integration (see: [Limitations](#limitations)).
 
 # Installation
 #### Prerequisites:
-Please make sure that the "enphase_envoy" core integration or custom integrations that overwrite the core integration are disabled.   
-Running two or more integrations accessing your Enphase gateway will result in unexpected behaviour and errors.
+- Please ensure that the "enphase_envoy" core integration is disabled.
+- Ensure that custom integrations overwriting the core integration are disabled.   
+- Running two or more integrations accessing your Enphase gateway will result in unexpected behaviour and errors.
 
 #### Installation:
 1. Install [HACS](https://hacs.xyz/) if you haven't already
