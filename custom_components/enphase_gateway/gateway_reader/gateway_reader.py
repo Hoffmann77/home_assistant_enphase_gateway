@@ -133,6 +133,7 @@ class GatewayReader:
         self._protocol = "https" if use_token_auth else "http"
         if self.use_token_auth:
             self._enphase_token = EnphaseToken(
+                host,
                 username, 
                 password, 
                 gateway_serial_num,
@@ -166,6 +167,11 @@ class GatewayReader:
             return {"Authorization": f"Bearer {token}"}
         else:
             return None
+        
+    @property
+    def _cookies(self):
+        """Return cookies from enphase_token."""
+        return self._enphase_token.cookies or None
 
     async def getData(self, getInverters=True):
         """Fetch data from the endpoint.
@@ -275,7 +281,10 @@ class GatewayReader:
             async with self.async_client as client:
                 try:
                     r = await client.get(
-                        url, headers=self._auth_header, **kwargs
+                        url,
+                        headers=self._auth_header,
+                        cookies=self._cookies,
+                        **kwargs,
                     )
                     if raise_for_status:
                         r.raise_for_status()

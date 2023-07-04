@@ -66,7 +66,11 @@ class EnphaseToken:
         self.enlighten_username = enlighten_username
         self.enlighten_password = enlighten_password
         self.gateway_serial_num = gateway_serial_num
+        self.expiration_date = None
         self._renewal_buffer = 600
+        self._token = None
+        self._type = None
+        self._cookies = None
         
         if (enlighten_username and enlighten_password and gateway_serial_num):
             self._auto_renewal = True
@@ -81,11 +85,6 @@ class EnphaseToken:
         
         if token_raw:
             self._init_token_raw(token_raw)
-        else:
-            self.expiration_date = None
-            self._token = None
-            self._type = None
-            self._cookies = None
             
         if filepath:
             self._cache_path = Path(filepath).resolve()
@@ -102,7 +101,19 @@ class EnphaseToken:
             Raw Token as string.
 
         """
-        return self._token        
+        return self._token   
+
+    @property
+    def cookies(self):
+        """Return cookies.
+        
+        Returns
+        -------
+        self._cookies : str
+            Cookies
+
+        """
+        return self._cookies
     
     @property
     def is_ready(self):
