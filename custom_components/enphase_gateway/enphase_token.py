@@ -67,6 +67,7 @@ class EnphaseToken:
         self.enlighten_password = enlighten_password
         self.gateway_serial_num = gateway_serial_num
         self.expiration_date = None
+        self._use_token_cache = False
         self._renewal_buffer = 600
         self._token = None
         self._type = None
@@ -84,7 +85,7 @@ class EnphaseToken:
             raise TokenConfigurationError(msg)
         
         if token_raw:
-            self._init_token_raw(token_raw)
+            self._init_from_token_raw(token_raw)
             
         if filepath:
             self._cache_path = Path(filepath).resolve()
@@ -93,36 +94,38 @@ class EnphaseToken:
 
     @property
     def token(self):
-        """Return the raw Enphase token.
+        """Return the plain Enphase token as string.
         
         Returns
         -------
-        self._token : str
-            Raw Token as string.
+        token : str
+            Enphase token as string.
 
         """
         return self._token   
 
     @property
     def cookies(self):
-        """Return cookies.
+        """Return the session cookies.
         
         Returns
         -------
-        self._cookies : str
-            Cookies
+        cookies : dict
+            Dict containing the cookies.
 
         """
         return self._cookies
     
     @property
-    def is_ready(self):
-        """Check if token is ready.
-
+    def is_populated(self):
+        """Return the population status of the EnphaseToken.
+        
+        Check if self._token and self.expiration_date are populated.
+        
         Returns
         -------
         bool
-            Return if token is ready.
+            True if populated. False otherwise.
 
         """
         if self._token and self.expiration_date:
@@ -132,12 +135,12 @@ class EnphaseToken:
     
     @property
     def is_expired(self):
-        """Check if Enphase token is expired.
+        """Return the expiration status of the Enphase token.
         
         Returns
         -------
         bool
-            Returns True if self._token is expired. Otherwise False.
+            True if token is expired. False otherwise.
 
         """
         delta = timedelta(seconds=self._renewal_buffer) 
@@ -152,7 +155,7 @@ class EnphaseToken:
     async def prepare(self):
         """Prepare the token for use.
         
-        Check the token and update the token if necessary.
+        Check the token and refresh the token if necessary.
         
         Returns
         -------
@@ -163,17 +166,18 @@ class EnphaseToken:
         if not self._token:
             _LOGGER.debug("Found empty token - Refreshing Enphase token")
             await self.refresh()
-        elif self.is_ready:
+        elif self.is_populated:
             _LOGGER.debug(f"Token is populated: {self._token}")
             if self.is_expired:
                 if self._auto_renewal:
                     _LOGGER.debug("Found Expired token - Retrieving new token")
                     await self.refresh() 
                 else:
-                    _LOGGER.debug("""Found Expired token. 
-                                  Please renew the token or provide the  
-                                  necessary credentials required for 
-                                  automatic token renewal"""
+                    _LOGGER.debug(
+                        """Found Expired token. 
+                        Please renew the token or provide the  
+                        necessary credentials required for 
+                        automatic token renewal"""
                     )
         else:
             pass
@@ -201,11 +205,33 @@ class EnphaseToken:
             f"New Enphase {self._type} token valid until: {self.expiration_date}"
         )
         try:
-            self._check_token(token_raw)
+            self.refresh_cookies()
         except httpx.HTTPError:
             pass
     
-    async def _init_token_raw(self, token_raw):
+    async def refresh_cookies(self):
+        """Refresh the cookies.
+        
+        Refresh self._cookies with the cookies returned by self._check_token.
+
+        Returns
+        -------
+        bool
+            True if refreshing the cookies was sucessfull. False otherwise.
+
+        """
+        try:
+            cookies = self._check_token(self._token)
+        except httpx.HTTPError:
+            return False
+        else:
+            if cookies:
+                self._cookies = cookies
+                return True
+            else:
+                return False
+    
+    async def _init_from_token_raw(self, token_raw):
         """Perform initialization for a raw token provided by the user.
         
         Decode and check the token to validate it's integrity and validity.
@@ -228,7 +254,7 @@ class EnphaseToken:
         _LOGGER.debug(f"Initializing token provided by the user: {token_raw}")
         try:
             decoded = await self._decode_token(token_raw)
-            token_valid = await self._check_token(token_raw)
+            cookies = await self._check_token(token_raw)
         except jwt.exceptions.InvalidTokenError as err:
             _LOGGER.debug(f"Error decoding the token: {err}")
             raise TokenError(
@@ -240,8 +266,9 @@ class EnphaseToken:
                 f"Error while checking token validity: {err}"
             )
         else:
-            if token_valid:
+            if cookies:
                 self._token = token_raw
+                self._cookies = cookies
                 self._type = decoded["enphaseUser"]
                 self.expiration_date = datetime.fromtimestamp(
                     decoded["exp"], tz=timezone.utc
@@ -252,11 +279,17 @@ class EnphaseToken:
                 raise TokenError(
                     f"The token you provided is not valid: {token_raw}"
                 )
+    
+    async def _init_from_token_cache(self):
+        # TODO: implement initialization from token cache.
+        pass
         
     async def _check_token(self, token_raw):
         """Call '/auth/check_jwt' to check if token is valid.
         
-        Set self._cookies if token is valid.
+        Send a HTTP GET request and parse the response.
+        Return the the cookies if the token is valid.
+        Return None if the token is not valid.
         
         Parameters
         ----------
@@ -265,8 +298,8 @@ class EnphaseToken:
         
         Returns
         -------
-        bool
-            Token validity.
+        cookies : dict or None
+            Dict containing cookies if token is valid. None otherwise.
 
         """
         _LOGGER.debug(f"Calling '/auth/check_jwt' to check token: {token_raw}")
@@ -275,7 +308,7 @@ class EnphaseToken:
         url = ENDPOINT_URL_CHECK_JWT.format(self.host)
         try:
             resp = await async_get(url, async_client, headers=auth_header) 
-        except Exception as err:
+        except httpx.HTTPError as err:
             _LOGGER.debug(f"Error while checking token: {err}")
             raise err
         else:
@@ -283,19 +316,18 @@ class EnphaseToken:
             validity = soup.find("h2").contents[0]
             if validity == "Valid token.":
                 _LOGGER.debug("Token is valid")
-                self._cookies = resp.cookies
-                return True
+                return resp.cookies
             else:
-                _LOGGER.debug("Invalid token!")
-                return False 
+                _LOGGER.debug("Token is not valid")
+                return None
 
-    async def _decode_token(self, token):
+    async def _decode_token(self, token_raw):
         """Decode the JWT Enphase token.
         
         Parameters
         ----------
-        token : str
-            Raw Enphase token as string.
+        token_raw : str
+            Plain Enphase token.
 
         Raises
         ------
@@ -305,18 +337,18 @@ class EnphaseToken:
         Returns
         -------
         decoded : dict
-            Decoded Token.
+            Dict containing values from the decoded Token.
 
         """
-        _LOGGER.debug(f"Decoding the Enphase token: {token}")
+        _LOGGER.debug(f"Decoding the Enphase token: {token_raw}")
         try:
             decoded = jwt.decode(
-                token,
+                token_raw,
                 algorithms=["ES256"],
                 options={"verify_signature": False},
             )
         except jwt.exceptions.InvalidTokenError as err:
-            _LOGGER.debug(f"Decoding of the Enphase token failed: {token}")
+            _LOGGER.debug(f"Decoding of the Enphase token failed: {token_raw}")
             raise err
         else:
             return decoded
@@ -326,8 +358,8 @@ class EnphaseToken:
         
         Returns
         -------
-        str
-            Raw Enphase token.
+        token_raw : str
+            Plain Enphase token.
 
         """
         _LOGGER.debug("Fetching new token from Enlighten.")
@@ -367,12 +399,12 @@ class EnphaseToken:
         except httpx.HTTPStatusError as err:
             status_code = err.response.status_code
             _LOGGER.debug(
-                f"Received status_code {status_code} from Gateway."
+                f"Received status_code {status_code} from Gateway: {resp}"
             )
             raise err
         else:
             return resp
-        
+
     async def _load_from_cache(self):
         """Return the raw token from the cache.
 
@@ -388,7 +420,7 @@ class EnphaseToken:
                 return token_json.get("EnphaseToken", None)
         else:
             return None
-        
+
     async def _save_to_cache(self, token_raw):
         """Save the raw token to the cache.
         
