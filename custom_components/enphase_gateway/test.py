@@ -21,3 +21,21 @@ def test(**kwargs):
     
 
 test(x=5)
+
+
+def test_1(**kwargs):
+    print(kwargs)
+    test_2(test="test_1", **kwargs)
+    
+    
+    
+def test_2(**kwargs):
+    print(kwargs)
+    
+
+v = {}
+try:
+    #x = v["home"]
+    print(b)
+except:
+    raise

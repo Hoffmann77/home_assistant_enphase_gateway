@@ -307,7 +307,7 @@ class EnphaseToken:
         auth_header = {"Authorization": "Bearer " + self._token}
         url = ENDPOINT_URL_CHECK_JWT.format(self.host)
         try:
-            resp = await async_get(url, async_client, headers=auth_header) 
+            resp = await async_get(url, async_client, headers=auth_header)
         except httpx.HTTPError as err:
             _LOGGER.debug(f"Error while checking token: {err}")
             raise err

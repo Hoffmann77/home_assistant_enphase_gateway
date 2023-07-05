@@ -11,6 +11,7 @@ import httpx
 from envoy_utils.envoy_utils import EnvoyUtils
 from homeassistant.util.network import is_ipv6_address
 
+from ..http import async_get
 from ..enphase_token import EnphaseToken
 
 
@@ -162,17 +163,23 @@ class GatewayReader:
 
     @property
     def _auth_header(self):
-        """Return authorization header if self._token is availiable."""
-        if token := self._enphase_token.token:
-            return {"Authorization": f"Bearer {token}"}
+        """Return authorization header."""
+        if self._enphase_token:
+            if token_raw := self._enphase_token.token:
+                return {"Authorization": f"Bearer {token_raw}"}
+            else:
+                return None
         else:
             return None
         
     @property
     def _cookies(self):
         """Return cookies from enphase_token."""
-        return self._enphase_token.cookies or None
-
+        if self._enphase_token:
+            return self._enphase_token.cookies or None
+        else:
+            return None
+        
     async def getData(self, getInverters=True):
         """Fetch data from the endpoint.
 
@@ -255,77 +262,138 @@ class GatewayReader:
         )
         self.endpoint_results[key] = response
     
-    async def _async_get(
-            self, url, handle_401=True, raise_for_status=True, **kwargs):
-        """Fetch endpoint and retry in case of a transport error.
-        
+    async def _async_get(self, url, handle_401=True, **kwargs):
+        """Send a HTTP GET request.
+
         Parameters
         ----------
         url : str
-            Endpoint url.
+            Target url.
         handle_401 : bool, optional
-            If True try to resolve 401 error. The default is False.
+            Try to resolve 401 errors if True. The default is True.
         **kwargs : dict, optional
-            Extra arguments to httpx client.post()..
+            Extra arguments to httpx client.post().
+
+        Raises
+        ------
+        err : httpx.HTTPStatusError
+         HTTP status error.
 
         Returns
         -------
-        TYPE
-            DESCRIPTION.
+        resp : httpx.Response
+            HTTP response.
 
         """
-        for attempt in range(1, 4):
-            _LOGGER.debug(
-                f"HTTP GET Attempt #{attempt}: {url}: Header:{self._auth_header}"
+        try:
+            resp = await async_get(
+                url, 
+                self.async_client, 
+                headers=self._auth_header,
+                cookies=self._cookies,
+                **kwargs
             )
-            async with self.async_client as client:
-                try:
-                    r = await client.get(
-                        url,
-                        headers=self._auth_header,
-                        cookies=self._cookies,
-                        **kwargs,
-                    )
-                    if raise_for_status:
-                        r.raise_for_status()
-                except httpx.HTTPStatusError as err:
-                    status_code = err.response.status_code
-                    _LOGGER.debug(
-                        f"Received status_code {status_code} from Gateway"
-                    )
-                    if status_code == 401 and handle_401:
-                        _LOGGER.debug(f"Request header: {self._auth_header}")
-                        _LOGGER.debug("Trying to update token")
-                        try:
-                            await self._enphase_token.refresh()
-                        except Exception as exc:
-                            _LOGGER.debug(
-                                f"Error while trying to update token: {exc}"
-                            )
-                            _LOGGER.debug("Raising initial 401 Error:")
-                            raise err
-                        else:
-                            return await self._async_get(
-                                url, handle_401=False, **kwargs
-                            )
-                    elif status_code == 503:
-                        raise RuntimeError(
-                            "Gateway temporary unavailable (503)."
-                        )
-                    else:
-                        raise err
-                except httpx.TransportError:
-                    if attempt >= 3:
+
+        except httpx.HTTPStatusError as err:
+            status_code = err.response.status_code
+            _LOGGER.debug(
+                f"Received status_code {status_code} from Gateway"
+            )
+            if status_code == 401 and handle_401 and self.use_token_auth:
+                _LOGGER.debug(
+                    "Trying to resolve 401 error - Refreshing cookies"
+                )
+                if not await self._enphase_token.refresh_cookies():
+                    _LOGGER.debug("Refreshing Enphase token")
+                    try:
+                        await self._enphase_token.refresh()
+                    except Exception as exc:
                         _LOGGER.debug(
-                            f"Transport Error while trying HTTP GET: {url}"
+                            f"Error while refreshing token: {exc}"
                         )
-                        raise
-                    else:
-                        await asyncio.sleep(attempt * 0.15)
-                        continue
-                else:
-                    _LOGGER.debug(f"Fetched from {url}: {r}: {r.text}")
-                    return r    
+                        _LOGGER.debug("Raising initial 401 error")
+                        raise err
+                        
+                return await self._async_get(url, handle_401=False, **kwargs)
+                    
+            else:
+                raise err
+
+        else:
+            return resp
+            
+
+    # async def _async_get(
+    #         self, url, handle_401=True, raise_for_status=True, **kwargs):
+    #     """Fetch endpoint and retry in case of a transport error.
+        
+    #     Parameters
+    #     ----------
+    #     url : str
+    #         Endpoint url.
+    #     handle_401 : bool, optional
+    #         If True try to resolve 401 error. The default is False.
+    #     **kwargs : dict, optional
+    #         Extra arguments to httpx client.post()..
+
+    #     Returns
+    #     -------
+    #     TYPE
+    #         DESCRIPTION.
+
+    #     """
+    #     for attempt in range(1, 4):
+    #         _LOGGER.debug(
+    #             f"HTTP GET Attempt #{attempt}: {url}: Header:{self._auth_header}"
+    #         )
+    #         async with self.async_client as client:
+    #             try:
+    #                 r = await client.get(
+    #                     url,
+    #                     headers=self._auth_header,
+    #                     cookies=self._cookies,
+    #                     **kwargs,
+    #                 )
+    #                 if raise_for_status:
+    #                     r.raise_for_status()
+    #             except httpx.HTTPStatusError as err:
+    #                 status_code = err.response.status_code
+    #                 _LOGGER.debug(
+    #                     f"Received status_code {status_code} from Gateway"
+    #                 )
+    #                 if status_code == 401 and handle_401:
+    #                     _LOGGER.debug(f"Request header: {self._auth_header}")
+    #                     _LOGGER.debug("Trying to update token")
+    #                     try:
+    #                         await self._enphase_token.refresh()
+    #                     except Exception as exc:
+    #                         _LOGGER.debug(
+    #                             f"Error while trying to update token: {exc}"
+    #                         )
+    #                         _LOGGER.debug("Raising initial 401 Error:")
+    #                         raise err
+    #                     else:
+    #                         return await self._async_get(
+    #                             url, handle_401=False, **kwargs
+    #                         )
+    #                 elif status_code == 503:
+    #                     raise RuntimeError(
+    #                         "Gateway temporary unavailable (503)."
+    #                     )
+    #                 else:
+    #                     raise err
+    #             except httpx.TransportError:
+    #                 if attempt >= 3:
+    #                     _LOGGER.debug(
+    #                         f"Transport Error while trying HTTP GET: {url}"
+    #                     )
+    #                     raise
+    #                 else:
+    #                     await asyncio.sleep(attempt * 0.15)
+    #                     continue
+    #             else:
+    #                 _LOGGER.debug(f"Fetched from {url}: {r}: {r.text}")
+    #                 return r    
     
     # async def _async_post(self, url, retries=2, raise_for_status=True, **kwargs):
     #     """Post using async.
@@ -376,7 +444,8 @@ class GatewayReader:
     #                     await asyncio.sleep(attempt * 0.15)
     #             else:
     #                 return r
-        
+
+
     async def _setup_gateway(self):
         """Try to detect and setup the Enphase Gateway.
         

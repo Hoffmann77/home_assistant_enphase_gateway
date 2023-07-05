@@ -43,16 +43,18 @@ async def async_get(url, async_client, retries=2, raise_for_status=True, **kwarg
         async with async_client as client:
             try:
                 resp = await client.get(url, **kwargs)
+                "Response from GET Attempt #{attempt}: {resp}"
+                _LOGGER.debug(f"HTTP GET {url}: {resp}: {resp.text}")
                 if raise_for_status:
                     resp.raise_for_status()        
             except httpx.TransportError as err:
                 if attempt >= retries+2:
                     _LOGGER.debug(
-                        f"Transport Error while trying HTTP GET: {url}"
+                        f"Transport Error while trying HTTP GET: {url}: {err}"
                     )
                     raise err
                 else:
-                    await asyncio.sleep(attempt * 0.15)
+                    await asyncio.sleep(attempt * 0.12)
                     continue
             else:
                 _LOGGER.debug(f"Fetched from {url}: {resp}: {resp.text}")
@@ -94,11 +96,11 @@ async def _async_post(url, async_client, retries=2, raise_for_status=True, **kwa
             except httpx.TransportError as err:
                 if attempt >= retries+2:
                     _LOGGER.debug(
-                        f"Transport Error while trying HTTP GET: {url}"
+                        f"Transport Error while trying HTTP POST: {url}"
                     )
                     raise err
                 else:
-                    await asyncio.sleep(attempt * 0.15)
+                    await asyncio.sleep(attempt * 0.12)
                     continue
             else:
                 _LOGGER.debug(f"Fetched from {url}: {resp}: {resp.text}")
