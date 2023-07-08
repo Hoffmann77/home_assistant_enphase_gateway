@@ -36,32 +36,32 @@ async def async_get(url, async_client, retries=2, raise_for_status=True, **kwarg
         HTTP GET response.
 
     """
-    for attempt in range(1, retries+2):
-        _LOGGER.debug(
-            f"HTTP GET Attempt #{attempt}: {url}: kwargs: {kwargs}"
-        )
-        async with async_client as client:
+    async with async_client as client:
+        for attempt in range(1, retries+2):
+            _LOGGER.debug(
+                f"HTTP GET Attempt #{attempt}: {url}: kwargs: {kwargs}"
+            )
             try:
                 resp = await client.get(url, **kwargs)
-                "Response from GET Attempt #{attempt}: {resp}"
-                _LOGGER.debug(f"HTTP GET {url}: {resp}: {resp.text}")
+                _LOGGER.debug(
+                    f"Response: HTTP GET #{attempt}: {resp}: {resp.text}")
                 if raise_for_status:
-                    resp.raise_for_status()        
+                    resp.raise_for_status()
             except httpx.TransportError as err:
-                if attempt >= retries+2:
+                if attempt >= retries+1:
                     _LOGGER.debug(
-                        f"Transport Error while trying HTTP GET: {url}: {err}"
+                        f"Transport Error: HTTP GET Attempt #{attempt}: {err}"
                     )
                     raise err
                 else:
-                    await asyncio.sleep(attempt * 0.12)
+                    await asyncio.sleep(attempt * 0.10)
                     continue
             else:
-                _LOGGER.debug(f"Fetched from {url}: {resp}: {resp.text}")
+                _LOGGER.debug(f"Success: HTTP GET Attempt #{attempt}")
                 return resp
 
 
-async def _async_post(url, async_client, retries=2, raise_for_status=True, **kwargs):
+async def async_post(url, async_client, retries=2, raise_for_status=True, **kwargs):
     """Send a HTTP POST request using httpx.
     
     Parameters
@@ -83,26 +83,28 @@ async def _async_post(url, async_client, retries=2, raise_for_status=True, **kwa
         httpx response object.
 
     """
-    for attempt in range(1, retries+2):
-        _LOGGER.debug(
-            f"HTTP POST Attempt #{attempt}: {url}: kwargs: {kwargs}"
-        )
-        async with async_client as client:
+    async with async_client as client:
+        for attempt in range(1, retries+2):
+            _LOGGER.debug(
+                f"HTTP POST Attempt #{attempt}: {url}: kwargs: {kwargs}"
+            )
             try:
                 resp = await client.post(url, **kwargs)
-                _LOGGER.debug(f"HTTP POST {url}: {resp}: {resp.text}")
+                _LOGGER.debug(
+                    f"Response: HTTP POST #{attempt}: {resp}: {resp.text}"
+                )
                 if raise_for_status:
                     resp.raise_for_status()
             except httpx.TransportError as err:
-                if attempt >= retries+2:
+                if attempt >= retries+1:
                     _LOGGER.debug(
-                        f"Transport Error while trying HTTP POST: {url}"
+                        f"Transport Error: HTTP POST Attempt #{attempt}: {err}"
                     )
                     raise err
                 else:
-                    await asyncio.sleep(attempt * 0.12)
+                    await asyncio.sleep(attempt * 0.10)
                     continue
             else:
-                _LOGGER.debug(f"Fetched from {url}: {resp}: {resp.text}")
+                _LOGGER.debug(f"Success: HTTP POST Attempt #{attempt}")
                 return resp
-            
+

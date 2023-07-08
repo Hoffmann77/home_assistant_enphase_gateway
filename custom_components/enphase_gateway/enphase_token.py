@@ -205,7 +205,7 @@ class EnphaseToken:
             f"New Enphase {self._type} token valid until: {self.expiration_date}"
         )
         try:
-            self.refresh_cookies()
+            await self.refresh_cookies()
         except httpx.HTTPError:
             pass
     
@@ -221,7 +221,7 @@ class EnphaseToken:
 
         """
         try:
-            cookies = self._check_token(self._token)
+            cookies = await self._check_token(self._token)
         except httpx.HTTPError:
             return False
         else:
@@ -302,7 +302,7 @@ class EnphaseToken:
             Dict containing cookies if token is valid. None otherwise.
 
         """
-        _LOGGER.debug(f"Calling '/auth/check_jwt' to check token: {token_raw}")
+        _LOGGER.debug("Calling '/auth/check_jwt' to check token")
         async_client = httpx.AsyncClient(verify=False, timeout=10.0)
         auth_header = {"Authorization": "Bearer " + self._token}
         url = ENDPOINT_URL_CHECK_JWT.format(self.host)

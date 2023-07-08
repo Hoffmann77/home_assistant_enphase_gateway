@@ -130,7 +130,7 @@ class GatewayReader:
         self.meters_enabled = False
         self.get_inverters = inverters
         self._async_client = async_client
-        self._cookies = None
+        #self._cookies = None
         self._protocol = "https" if use_token_auth else "http"
         if self.use_token_auth:
             self._enphase_token = EnphaseToken(
