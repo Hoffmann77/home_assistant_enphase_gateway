@@ -21,8 +21,12 @@ ICON = "mdi:flash"
 COORDINATOR = "coordinator"
 NAME = "name"
 
-CONF_SERIAL = "serial"
-CONF_USE_ENLIGHTEN = "use_enlighten"
+CONF_SERIAL_NUM = "serial_num"
+CONF_USE_TOKEN_AUTH = "use_token_auth"
+CONF_TOKEN_RAW = "token_raw"
+CONF_USE_TOKEN_CACHE = "use_token_cache"
+CONF_TOKEN_CACHE_FILEPATH = "token_cache_filepath"
+CONF_SINGLE_INVERTER_ENTITIES = "single_inverter_entities"
 
 SENSORS = (
     SensorEntityDescription(

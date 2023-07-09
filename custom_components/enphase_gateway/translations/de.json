@@ -9,15 +9,17 @@
             "invalid_auth": "Ung\u00fcltige Authentifizierung",
             "unknown": "Unerwarteter Fehler"
         },
-        "flow_title": "{serial} ({host})",
+        "flow_title": "{serial_num} ({host})",
         "step": {
             "user": {
                 "data": {
                     "host": "Host",
                     "password": "Passwort",
-                    "username": "Benutzername"
+                    "username": "Benutzername",
+                    "serial_num": "Seriennummer des Gateways",
+                    "use_token_auth": "Mit Enphase Token authentifizieren (Erforderlich für Firmware D7.x)"
                 },
-                "description": "Bei neueren Modellen gib den Benutzernamen `envoy` ohne Passwort ein. F\u00fcr \u00e4ltere Modelle gib den Benutzernamen `installer` ohne Passwort ein. F\u00fcr alle anderen Modelle gib einen g\u00fcltigen Benutzernamen und ein Passwort ein."
+                "description": "Für Firmware D7.x benutze bitte deine Anmeldedaten der Enlighten Webseite als Benutzername und Passwort und setze den Haken bei `Mit Enphase Token authentifizieren`.\n Bei älteren Modellen gib den Benutzernamen `envoy` ohne Passwort ein oder f\u00fcr noch \u00e4ltere Modelle den Benutzernamen `installer` ohne Passwort.\n F\u00fcr alle anderen Modelle gib einen g\u00fcltigen Benutzernamen und ein Passwort ein."
             }
         }
     }

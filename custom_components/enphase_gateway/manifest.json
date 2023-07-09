@@ -1,9 +1,9 @@
 {
   "domain": "enphase_gateway",
-  "name": "Enphase Gateway (DEV)",
+  "name": "Enphase Gateway (HACS)",
   "codeowners": ["@Hoffmann77"],
-  "documentation": "https://github.com/Hoffmann77/home_assistant_custom_envoy",
-  "issue_tracker": "https://github.com/Hoffmann77/home_assistant_custom_envoy/issues",
+  "documentation": "https://github.com/Hoffmann77/home_assistant_enphase_gateway",
+  "issue_tracker": "https://github.com/Hoffmann77/home_assistant_enphase_gateway/issues",
   "requirements": ["envoy-utils"],
   "iot_class": "local_polling",
   "integration_type": "hub",

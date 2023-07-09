@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import COORDINATOR, DOMAIN, NAME, PLATFORMS, SENSORS, CONF_USE_ENLIGHTEN, CONF_SERIAL
+from .const import COORDINATOR, DOMAIN, NAME, PLATFORMS, SENSORS, CONF_USE_TOKEN_AUTH, CONF_SERIAL_NUM
 from .gateway_reader import GatewayReader
 
 
@@ -31,8 +31,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         config[CONF_HOST],
         username=config[CONF_USERNAME],
         password=config[CONF_PASSWORD],
-        gateway_serial_num=config[CONF_SERIAL],
-        use_token_auth=config.get(CONF_USE_ENLIGHTEN, False),
+        gateway_serial_num=config[CONF_SERIAL_NUM],
+        use_token_auth=config.get(CONF_USE_TOKEN_AUTH, False),
         # async_client=get_async_client(hass),
         inverters=True,
     )
@@ -90,7 +90,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if not entry.unique_id:
         try:
-            serial = await gateway_reader.get_full_serial_number()
+            serial = await gateway_reader.get_serial_number()
         except httpx.HTTPError:
             pass
         else:

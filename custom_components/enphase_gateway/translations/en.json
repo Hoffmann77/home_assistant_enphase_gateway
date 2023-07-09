@@ -9,17 +9,17 @@
       "invalid_auth": "Invalid authentication",
       "unknown": "Unexpected error"
     },
-    "flow_title": "{serial} ({host})",
+    "flow_title": "{serial_num} ({host})",
     "step": {
       "user": {
         "data": {
           "host": "Host",
           "password": "Password",
           "username": "Username",
-          "serial": "envoy serial number",
-          "use_enlighten": "Use Enlighten"
+          "serial_num": "Gateway's serial number",
+          "use_token_auth": "Use Token based authentication (Required for Firmware D7.x)"
         },
-        "description": "For newer models, enter username `envoy` without a password. For older models, enter username `installer` without a password. For all other models, enter a valid username and password. For firmware D7.0.0 and above check `use enlighten`"
+        "description": "For Firmware D7.x please enter your login credentials for the Enlighten website as username and password and check `Use Token based authentication`.\n For older models, enter username `envoy` without a password or enter username `installer` without a password for even older models.\n For all other models, enter a valid username and password."
       }
     }
   }

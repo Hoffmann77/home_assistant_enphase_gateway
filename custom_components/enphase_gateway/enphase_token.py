@@ -33,7 +33,8 @@ class EnphaseToken:
             enlighten_password,
             gateway_serial_num,
             token_raw=None,
-            filepath=None,
+            use_token_cache=False,
+            token_cache_filepath=None,
         ):
         """Initialize EnphaseToken.
         
@@ -49,7 +50,7 @@ class EnphaseToken:
             Gateway's serial number.
         token_raw : str, optional
             EnphaseToken. The default is None.
-        filepath : str, optional
+        cache_filepath : str, optional
             Filepath for the token cache. The default is None.
 
         Raises
@@ -62,12 +63,12 @@ class EnphaseToken:
         None.
 
         """
-        self.host = host,
+        self.host = host
         self.enlighten_username = enlighten_username
         self.enlighten_password = enlighten_password
         self.gateway_serial_num = gateway_serial_num
         self.expiration_date = None
-        self._use_token_cache = False
+        self._use_token_cache = use_token_cache
         self._renewal_buffer = 600
         self._token = None
         self._type = None
@@ -84,13 +85,13 @@ class EnphaseToken:
             )
             raise TokenConfigurationError(msg)
         
-        if token_raw:
-            self._init_from_token_raw(token_raw)
-            
-        if filepath:
-            self._cache_path = Path(filepath).resolve()
+        if token_cache_filepath:
+            self._token_cache_filepath = Path(token_cache_filepath).resolve()
         else:
-            self._cache_path = BASE_DIR.joinpath("token_cache.json")
+            self._token_cache_filepath = BASE_DIR.joinpath("token_cache.json")
+            
+        if token_raw:
+            self._init_from_token_raw(token_raw)   
 
     @property
     def token(self):
@@ -393,13 +394,13 @@ class EnphaseToken:
             httpx response object.
 
         """
-        async_client = httpx.AsyncClient(verify=False, timeout=10.0)
+        async_client = httpx.AsyncClient(verify=True, timeout=10.0)
         try:
             resp = await async_post(url, async_client, **kwargs)
         except httpx.HTTPStatusError as err:
             status_code = err.response.status_code
             _LOGGER.debug(
-                f"Received status_code {status_code} from Gateway: {resp}"
+                f"Received status_code {status_code} from Gateway"
             )
             raise err
         else:
@@ -414,7 +415,7 @@ class EnphaseToken:
             Returns the raw token or None.
 
         """
-        if filepath := self._cache_path.is_file():
+        if filepath := self._token_cache_filepath.is_file():
             with filepath.open() as f:
                 token_json = json.load(f)
                 return token_json.get("EnphaseToken", None)
@@ -435,7 +436,7 @@ class EnphaseToken:
 
         """
         token_json = {"EnphaseToken": token_raw}
-        filepath = self._cache_path
+        filepath = self._token_cache_filepath
         with filepath.open("w+") as f:
             json.dump(token_json, f)
         

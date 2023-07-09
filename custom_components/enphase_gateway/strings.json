@@ -8,8 +8,9 @@
           "host": "[%key:common::config_flow::data::host%]",
           "username": "[%key:common::config_flow::data::username%]",
           "password": "[%key:common::config_flow::data::password%]",
-          "serial": "envoy serial number",
-          "use_enlighten": "Use Enlighten"
+          "serial_num": "Gateway serial number",
+          "token_auth": "Use Token based authentication",
+          "single_inverters": "Show single inverter data"
         }
       }
     },
