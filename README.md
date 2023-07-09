@@ -6,12 +6,12 @@
 Please be aware that this custom integration **does not** overwrite the "enphase_envoy" core integration (see: [Limitations](#limitations)).
 
 # Installation
-#### Prerequisites:
+### Prerequisites:
 - Please ensure that the "enphase_envoy" core integration is disabled.
 - Ensure that custom integrations overwriting the core integration are disabled.   
 - Running two or more integrations accessing your Enphase gateway will result in unexpected behaviour and errors.
 
-#### Installation:
+### Installation:
 1. Install [HACS](https://hacs.xyz/) if you haven't already
 2. Add this repository as a [custom integration repository](https://hacs.xyz/docs/faq/custom_repositories) in HACS
 4. Restart home assistant
@@ -19,11 +19,23 @@ Please be aware that this custom integration **does not** overwrite the "enphase
 
 
 # Supported Gateways
-
+### Gateways:
   - Envoy-S Metered (with CT's enabled or disabled)
   - Envoy-S Standard
   - Envoy-C
 
+### Parameters:
+
+|  | Envoy-C | Envoy-S Standard | Envoy-S Metered <br /> (CT's disabled) | Envoy-S Metered <br /> (CT's enabled) |
+|:----|:----:|:----:|:----:|:----:|
+| Current Power Production | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Today's Energy Production | :heavy_check_mark: | :heavy_check_mark: | :x: | :heavy_check_mark: |
+| Last Seven Days Energy Production | :heavy_check_mark: | :heavy_check_mark: | :x: | :heavy_check_mark: |
+| Lifetime Energy Production | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Current Power Consumption | :x: | :x: | :x: | :heavy_check_mark: |
+| Today's Energy Consumption | :x: | :x: | :x: | :heavy_check_mark: |
+| Last Seven Days Energy Consumption | :x: | :x: | :x: | :heavy_check_mark:|
+| Lifetime Energy Consumption | :x: | :x: | :x: | :heavy_check_mark: |
 
 # Usage
 
