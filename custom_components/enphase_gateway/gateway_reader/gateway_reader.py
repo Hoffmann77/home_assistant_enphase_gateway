@@ -113,7 +113,10 @@ class GatewayReader:
             password="",
             gateway_serial_num=None,
             use_token_auth=False,
-            token_filepath=None,
+            token_raw=None,
+            use_token_cache=False,
+            token_cache_filepath=None,
+            single_inverter_entities=False,
             inverters=False,
             async_client=None,
         ):
@@ -130,14 +133,16 @@ class GatewayReader:
         self.meters_enabled = False
         self.get_inverters = inverters
         self._async_client = async_client
-        #self._cookies = None
         self._protocol = "https" if use_token_auth else "http"
         if self.use_token_auth:
             self._enphase_token = EnphaseToken(
-                host,
-                username, 
-                password, 
+                self.host,
+                username,
+                password,
                 gateway_serial_num,
+                token_raw=token_raw,
+                use_token_cache=use_token_cache,
+                token_cache_filepath=token_cache_filepath,
             )
         else:
             self._enphase_token = None
@@ -258,7 +263,8 @@ class GatewayReader:
         """Fetch the given endpoint and update the endpoint_results dict."""
         formatted_url = url.format(self._protocol, self.host)
         response = await self._async_get(
-            formatted_url, follow_redirects=False
+            formatted_url,
+            follow_redirects=False
         )
         self.endpoint_results[key] = response
     
@@ -287,8 +293,8 @@ class GatewayReader:
         """
         try:
             resp = await async_get(
-                url, 
-                self.async_client, 
+                url,
+                self.async_client,
                 headers=self._auth_header,
                 cookies=self._cookies,
                 **kwargs
@@ -465,9 +471,7 @@ class GatewayReader:
         None.
 
         """
-        # TODO: If error 401 while fetching production.json wrong classification
-        
-        _LOGGER.debug("Setup Enphase gateway")
+        _LOGGER.debug("Trying to detect Enphase gateway")
         # If a password was not given as an argument when instantiating
         # the EnvoyReader object than use the last six numbers of the serial
         # number as the password. Otherwise use the password argument value.
@@ -477,6 +481,10 @@ class GatewayReader:
         try:
             self.endpoint_results = {}
             await self._update(detection=True, gateway_type="ENVOY_MODEL_S")
+        except httpx.HTTPStatusError as err:
+            status_code = err.response.status_code
+            if status_code == 401 and self.use_token_auth:
+                raise err
         except httpx.HTTPError:
             pass
         
@@ -543,7 +551,7 @@ class GatewayReader:
             Gateway password.
 
         """
-        serial_num = self.gateway_serial_num or await self._get_serial_number()
+        serial_num = self.gateway_serial_num or await self.get_serial_number()
         if serial_num:
             if self.username == "envoy" or self.username != "installer":
                 return serial_num[-6:]
@@ -552,7 +560,7 @@ class GatewayReader:
         else:
             return None
 
-    async def _get_serial_number(self):
+    async def get_serial_number(self):
         """Get the Envoy serial number."""
         response = await self._async_get(
             f"http{self._protocol}://{self.host}/info.xml",
