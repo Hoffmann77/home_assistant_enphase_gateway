@@ -9,7 +9,7 @@
             "invalid_auth": "Ugyldig godkjenning",
             "unknown": "Uventet feil"
         },
-        "flow_title": "{serial} ({host})",
+        "flow_title": "{serial_num} ({host})",
         "step": {
             "user": {
                 "data": {
@@ -17,7 +17,7 @@
                     "password": "Passord",
                     "username": "Brukernavn"
                 },
-                "description": "For nyere modeller, skriv inn brukernavnet \"envoy\" uten passord. For eldre modeller, skriv inn brukernavnet `installer` uten passord. For alle andre modeller, skriv inn et gyldig brukernavn og passord."
+                "description_TODO_UPDATE": "For nyere modeller, skriv inn brukernavnet \"envoy\" uten passord. For eldre modeller, skriv inn brukernavnet `installer` uten passord. For alle andre modeller, skriv inn et gyldig brukernavn og passord."
             }
         }
     }

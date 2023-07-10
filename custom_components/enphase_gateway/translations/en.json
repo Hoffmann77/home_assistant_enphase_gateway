@@ -19,7 +19,7 @@
           "serial_num": "Gateway's serial number",
           "use_token_auth": "Use Token based authentication (Required for Firmware D7.x)"
         },
-        "description": "For Firmware D7.x please enter your login credentials for the Enlighten website as username and password and check `Use Token based authentication`.\n For older models, enter username `envoy` without a password or enter username `installer` without a password for even older models.\n For all other models, enter a valid username and password."
+        "description": "- For Firmware D7.x please enter your login credentials for the Enlighten website as username and password and check `Use Token based authentication`.\n - For older models, enter username `envoy` without a password or enter username `installer` without a password for even older models.\n - For all other models, enter a valid username and password."
       }
     }
   }
