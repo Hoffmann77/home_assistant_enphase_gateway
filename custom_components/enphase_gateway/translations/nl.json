@@ -9,17 +9,17 @@
             "invalid_auth": "Ongeldige authenticatie",
             "unknown": "Onverwachte fout"
         },
-        "flow_title": "{serial} ({host})",
+        "flow_title": "{serial_num} ({host})",
         "step": {
             "user": {
                 "data": {
                     "host": "Host",
                     "password": "Wachtwoord",
                     "username": "Gebruikersnaam",
-                    "serial": "Envoy serienummer",
-                    "use_enlighten": "Gebruik Enlighten"
+                    "serial_num": "Gateway serienummer",
+                    "use_token_auth": "Gebruik verificatie op basis van tokens"
                 },
-                "description": "Voer voor nieuwere modellen gebruikersnaam 'envoy' in zonder wachtwoord. Voer voor oudere modellen gebruikersnaam `installer` in zonder wachtwoord. Voer voor alle andere modellen een geldige gebruikersnaam en wachtwoord in. Voor firmware D7.0.0 en hoger schakel `Gebruik Enlighten` in."
+                "description": "- Voer voor Firmware D7.x uw aanmeldingsgegevens voor de Enlighten-website in als gebruikersnaam en wachtwoord en vink `Gebruik verificatie op basis van tokens` aan.\n -Voer voor oudere modellen de gebruikersnaam `envoy` zonder wachtwoord in of voer voor nog oudere modellen de gebruikersnaam `installer` zonder wachtwoord in.\n - Voer voor alle andere modellen een geldige gebruikersnaam en wachtwoord in."
             }
         }
     }

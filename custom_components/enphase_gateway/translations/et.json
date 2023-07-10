@@ -9,7 +9,7 @@
             "invalid_auth": "Tuvastamise viga",
             "unknown": "Tundmatu viga"
         },
-        "flow_title": "{serial} ({host})",
+        "flow_title": "{serial_num} ({host})",
         "step": {
             "user": {
                 "data": {
@@ -17,7 +17,7 @@
                     "password": "Salas\u00f5na",
                     "username": "Kasutajanimi"
                 },
-                "description": "Uuemate mudelite puhul sisesta kasutajanimi \"envoy\" ilma salas\u00f5nata. Vanemate mudelite puhul sisesta kasutajanimi \"installer\" ilma salas\u00f5nata. K\u00f5igi teiste mudelite puhul sisesta kehtiv kasutajanimi ja salas\u00f5nal."
+                "description_TODO_UPDATE": "Uuemate mudelite puhul sisesta kasutajanimi \"envoy\" ilma salas\u00f5nata. Vanemate mudelite puhul sisesta kasutajanimi \"installer\" ilma salas\u00f5nata. K\u00f5igi teiste mudelite puhul sisesta kehtiv kasutajanimi ja salas\u00f5nal."
             }
         }
     }

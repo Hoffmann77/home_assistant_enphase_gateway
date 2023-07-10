@@ -9,7 +9,7 @@
             "invalid_auth": "Autenticaci\u00f3 inv\u00e0lida",
             "unknown": "Error inesperat"
         },
-        "flow_title": "{serial} ({host})",
+        "flow_title": "{serial_num} ({host})",
         "step": {
             "user": {
                 "data": {
@@ -17,7 +17,7 @@
                     "password": "Contrasenya",
                     "username": "Nom d'usuari"
                 },
-                "description": "Per als models m\u00e9s nous, introdueix el nom d'usuari `envoy` sense contrasenya. Per als models m\u00e9s antics, introdueix el nom d'usuari `installer` sense contrasenya. Per a la resta de models, introdueix un nom d'usuari i una contrasenya v\u00e0lids."
+                "description_TODO_UPDATE": "Per als models m\u00e9s nous, introdueix el nom d'usuari `envoy` sense contrasenya. Per als models m\u00e9s antics, introdueix el nom d'usuari `installer` sense contrasenya. Per a la resta de models, introdueix un nom d'usuari i una contrasenya v\u00e0lids."
             }
         }
     }

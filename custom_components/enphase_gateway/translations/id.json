@@ -9,7 +9,7 @@
             "invalid_auth": "Autentikasi tidak valid",
             "unknown": "Kesalahan yang tidak diharapkan"
         },
-        "flow_title": "{serial} ({host})",
+        "flow_title": "{serial_num} ({host})",
         "step": {
             "user": {
                 "data": {
@@ -17,7 +17,7 @@
                     "password": "Kata Sandi",
                     "username": "Nama Pengguna"
                 },
-                "description": "Untuk model yang lebih baru, masukkan nama pengguna `envoy` tanpa kata sandi. Untuk model yang lebih lama, masukkan nama pengguna `installer` tanpa kata sandi. Untuk semua model lainnya, masukkan nama pengguna dan kata sandi yang valid."
+                "description_TODO_UPDATE": "Untuk model yang lebih baru, masukkan nama pengguna `envoy` tanpa kata sandi. Untuk model yang lebih lama, masukkan nama pengguna `installer` tanpa kata sandi. Untuk semua model lainnya, masukkan nama pengguna dan kata sandi yang valid."
             }
         }
     }
