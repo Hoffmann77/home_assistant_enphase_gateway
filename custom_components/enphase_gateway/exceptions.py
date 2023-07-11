@@ -24,3 +24,13 @@ class TokenConfigurationError(ValueError):
     
     pass
 
+
+class InvalidEnphaseTokenError(ValueError):
+    """Error for invalid Enphase tokens.
+    
+    Is raised if token validation using /auth/check_jwt returns
+    invalid as response.
+    
+    """
+    
+    pass
