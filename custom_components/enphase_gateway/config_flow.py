@@ -18,13 +18,15 @@ from homeassistant.exceptions import HomeAssistantError
 from .gateway_reader import GatewayReader
 from .const import (
     DOMAIN, CONF_SERIAL_NUM, CONF_USE_TOKEN_AUTH, CONF_TOKEN_CACHE_FILEPATH,
-    CONF_TOKEN_RAW, CONF_USE_TOKEN_CACHE, CONF_SINGLE_INVERTER_ENTITIES
+    CONF_TOKEN_RAW, CONF_USE_TOKEN_CACHE, CONF_SINGLE_INVERTER_ENTITIES,
+    CONF_USE_LEGACY_NAME
 )
 
 
 _LOGGER = logging.getLogger(__name__)
 
-TITLE = "Enphase Gateway"
+DEFAULT_TITLE = "Enphase Gateway"
+LEGACY_TITLE = "Envoy"
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> GatewayReader:
@@ -71,7 +73,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self, 
             discovery_info: zeroconf.ZeroconfServiceInfo) -> FlowResult:
         """Handle a config flow initialized by zeroconf discovery.
-
+        
+        Update the IP adress of discovered devices unless the system 
+        option to enable newly discoverd entries is off.
+        
         Parameters
         ----------
         discovery_info : zeroconf.ZeroconfServiceInfo
@@ -81,37 +86,32 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         -------
         FlowResult
             Config flow result.
-
+            
         """
+        _LOGGER.debug(f"""Zeroconf discovery: {discovery_info}""")
         serial_num = discovery_info.properties["serialnum"]
-        await self.async_set_unique_id(serial_num)
-
-        # 75 If system option to enable newly discoverd entries is off (by user)
-        # and unique_id is this serial_num then skip updating ip
-        for entry in self._async_current_entries(include_ignore=False):
-            if entry.pref_disable_new_entities and entry.unique_id is not None:
-                if entry.unique_id == serial_num:
-                    _LOGGER.debug(
-                        f"""Gateway autodiscovery/ip update disabled 
-                        for: {serial_num}, IP detected: {discovery_info.host} 
-                        {entry.unique_id}"""
-                    )
-                    return self.async_abort(reason="pref_disable_new_entities")
-
-        # autodiscovery is updating the ip address of an existing gateway with 
-        # matching serial_num to new detected ip adress
+        current_entry = await self.async_set_unique_id(serial_num)
+        
+        if current_entry and current_entry.pref_disable_new_entities:
+            _LOGGER.debug(
+                f"""
+                Gateway autodiscovery/ip update disabled for: {serial_num},
+                IP detected: {discovery_info.host} {current_entry.unique_id}
+                """
+            )
+            return self.async_abort(reason="pref_disable_new_entities")    
+        
         self.ip_address = discovery_info.host
-        self._abort_if_unique_id_configured({CONF_HOST: self.ip_address})
+        self._abort_if_unique_id_configured({CONF_HOST: self.ip_address})     
+        
+        # set unique_id if not set for an entry with the same IP adress
         for entry in self._async_current_entries(include_ignore=False):
-            if (
-                entry.unique_id is None
-                and CONF_HOST in entry.data
-                and entry.data[CONF_HOST] == self.ip_address
-            ):  
-                if entry.title == TITLE:
-                    title = f"{TITLE} {serial_num}"
+            if not entry.unique_id and entry.data.get(CONF_HOST) == self.ip_adress:
+                # update title with serial_num if title was not changed
+                if entry.title in {DEFAULT_TITLE, LEGACY_TITLE}:
+                    title = f"{entry.title} {serial_num}"
                 else:
-                    title = TITLE    
+                    title = entry.title
                 self.hass.config_entries.async_update_entry(
                     entry, title=title, unique_id=serial_num
                 )
@@ -121,7 +121,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason="already_configured")
 
         return await self.async_step_user()
-    
+            
     async def async_step_user(
             self, 
             user_input: dict[str, Any] | None = None) -> FlowResult:
@@ -139,8 +139,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         """
         errors = {}
-
         if user_input is not None:
+            use_legacy_name = user_input.pop(CONF_USE_LEGACY_NAME, False)
             if (
                 not self._reauth_entry
                 and user_input[CONF_HOST] in self._get_current_hosts()
@@ -157,27 +157,23 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 data = user_input.copy() | self._get_placeholders()
-                data[CONF_NAME] = self._get_gateway_name(gateway_reader)
-
+                data[CONF_NAME] = self._generate_name(use_legacy_name)
+                
                 if self._reauth_entry:
                     self.hass.config_entries.async_update_entry(
                         self._reauth_entry,
                         data=data,
                     )
                     return self.async_abort(reason="reauth_successful")
-
-                if (not self.unique_id and 
-                    await self._async_set_unique_id_from_gateway(gateway_reader)
-                ):
-                    data[CONF_NAME] = self._get_gateway_name(gateway_reader)
-
-                if self.unique_id:
-                    self._abort_if_unique_id_configured(
-                        {CONF_HOST: data[CONF_HOST]}
-                    )
-
+                
+                if not self.unique_id:
+                    if serial_num := await gateway_reader.get_serial_number():
+                        await self.async_set_unique_id(serial_num)    
+                        data[CONF_NAME] = self._generate_name(use_legacy_name)
+                
+                self._abort_if_unique_id_configured()
                 return self.async_create_entry(title=data[CONF_NAME], data=data)
-
+                
         if self.unique_id:
             self.context["title_placeholders"] = {
                 CONF_SERIAL_NUM: self.unique_id,
@@ -226,6 +222,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         schema[vol.Optional(CONF_PASSWORD, default="")] = str
         schema[vol.Optional(CONF_SERIAL_NUM, default=self.unique_id or "")] = str
         schema[vol.Optional(CONF_USE_TOKEN_AUTH, default=False)] = bool
+        schema[vol.Optional(CONF_USE_LEGACY_NAME, default=False)] = bool
         return vol.Schema(schema)
 
     @callback
@@ -236,19 +233,16 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             for entry in self._async_current_entries(include_ignore=False)
             if CONF_HOST in entry.data
         }
-
-    def _get_gateway_name(self, gateway_reader: GatewayReader) -> str:
-        """Return the name of the gateway."""
-        if gateway_type := gateway_reader.gateway_type:
-            _name = " ".join(gateway_type.split("_")) # feature for future
-            _name = TITLE
+    
+    def _generate_name(self, use_legacy_name=False):
+        """Return the name of the entity."""
+        if use_legacy_name:
+            _name = LEGACY_TITLE
         else:
-            _name = TITLE
-        
+            _name = DEFAULT_TITLE
         if self.unique_id:
             return f"{_name} {self.unique_id}"
-        else:
-            return f"{_name}"
+        return _name
     
     async def _async_set_unique_id_from_gateway(
             self, 
@@ -263,7 +257,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return False
     
     def _get_placeholders(self):
-        """Return placeholders for config_entry"""
+        """Return placeholders for config_entry."""
         placeholders = {
             CONF_TOKEN_RAW: "",
             CONF_USE_TOKEN_CACHE: False,
@@ -273,7 +267,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return placeholders
         
 
-    
 class CannotConnect(HomeAssistantError):
     """Error to indicate we cannot connect."""
 

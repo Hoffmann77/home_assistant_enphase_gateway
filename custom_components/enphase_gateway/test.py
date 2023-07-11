@@ -7,7 +7,17 @@ import datetime
 
 test1 ={"teyt": 1}
 test2 ={"teyt1": 2}
+x=1
+y=2
+if x==1 and y == 3:
+    print("x")
+    
+v = True
+z= True
 
-x = "  "
-if x:
-    print("test")
+test1 = "Envoy"
+test2 = "Enphase Gateway"
+
+if "Envo" in ("Envoy",):
+    print("v")
+
