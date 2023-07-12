@@ -11,3 +11,10 @@ test2 ={"teyt1": 2}
 x = "  "
 if x:
     print("test")
+    
+d={"12234": "test", "b": "test"}
+    
+for i in d:
+    print(i)
+    
+    
