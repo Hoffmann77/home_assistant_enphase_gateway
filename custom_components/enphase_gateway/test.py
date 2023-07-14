@@ -8,13 +8,16 @@ import datetime
 test1 ={"teyt": 1}
 test2 ={"teyt1": 2}
 
-x = "  "
-if x:
-    print("test")
+
+def test():
+    return True
+
+
+
+if success := test():
+    print("success")
     
-d={"12234": "test", "b": "test"}
-    
-for i in d:
-    print(i)
+else:
+    print("fail")
     
     

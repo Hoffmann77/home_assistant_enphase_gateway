@@ -262,6 +262,118 @@ class GatewayInverterEntity(CoordinatedGatewayEntity):
         return None
 
 
+class BatteryEntityTest(SensorEntity, CoordinatorEntity):
+    """Test entity."""
+    
+    def __init__(
+            self,
+            description,
+            name,
+            device_name,
+            device_serial_number,
+            serial_number,
+            parent_device,
+            coordinator,
+    ):
+        self.entity_description = description
+        self._name = name
+        self._serial_number = serial_number
+        self._device_name = device_name
+        self._device_serial_number = device_serial_number
+        self._parent_device = parent_device
+        CoordinatorEntity.__init__(self, coordinator)
+
+    @property
+    def name(self):
+        """Return the name of the sensor."""
+        return self._name
+
+    @property
+    def icon(self):
+        """Icon to use in the frontend, if any."""
+        return ICON
+
+    @property
+    def unique_id(self):
+        """Return the unique id of the sensor."""
+        if self._serial_number:
+            return self._serial_number
+        if self._device_serial_number:
+            return f"{self._device_serial_number}_{self.entity_description.key}"
+        
+    # @property
+    # def device_info(self) -> DeviceInfo | None:
+    #     """Return the device_info of the device."""
+    #     if not self._device_serial_number:
+    #         return None
+
+    #     sw_version = None
+    #     hw_version = None
+    #     if self.coordinator.data.get("inverters_info") and self.coordinator.data.get(
+    #         "inverters_info"
+    #     ).get(self._device_serial_number):
+    #         sw_version = (
+    #             self.coordinator.data.get("inverters_info")
+    #             .get(self._device_serial_number)
+    #             .get("img_pnum_running")
+    #         )
+    #         hw_version = (
+    #             self.coordinator.data.get("inverters_info")
+    #             .get(self._device_serial_number)
+    #             .get("part_num")
+    #         )
+
+    #     return DeviceInfo(
+    #         identifiers={(DOMAIN, str(self._device_serial_number))},
+    #         manufacturer="Enphase",
+    #         model="Inverter",
+    #         name=self._device_name,
+    #         via_device=(DOMAIN, self._parent_device),
+    #         sw_version=sw_version,
+    #         hw_version=hw_version,
+    #     )
+    
+    @property
+    def native_value(self):
+        """Return the state of the sensor."""
+        if self.entity_description.key.startswith("inverters_"):
+            if self.coordinator.data.get("inverters_status") is not None:
+                return (
+                    self.coordinator.data.get("inverters_status")
+                    .get(self._device_serial_number)
+                    .get(self.entity_description.key[10:])
+                )
+        elif self.coordinator.data.get("inverters_production") is not None:
+            return (
+                self.coordinator.data.get("inverters_production")
+                .get(self._device_serial_number)
+                .get("watt")
+            )
+
+        return None
+
+    # @property
+    # def extra_state_attributes(self):
+    #     """Return the state attributes."""
+    #     if self.entity_description.key.startswith("inverters_"):
+    #         if self.coordinator.data.get("inverters_status") is not None:
+    #             value = (
+    #                 self.coordinator.data.get("inverters_status")
+    #                 .get(self._device_serial_number)
+    #                 .get("report_date")
+    #             )
+    #             return {"last_reported": value}
+    #     elif self.coordinator.data.get("inverters_production") is not None:
+    #         value = (
+    #             self.coordinator.data.get("inverters_production")
+    #             .get(self._serial_number)
+    #             .get("report_date")
+    #         )
+    #         return {"last_reported": value}
+
+    #     return None
+
+
 class GatewayBatteryEntity(CoordinatedGatewayEntity):
     """Battery entity."""
 
