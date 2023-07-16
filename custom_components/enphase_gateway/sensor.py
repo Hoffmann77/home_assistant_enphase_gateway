@@ -1,7 +1,5 @@
-"""Support for Enphase Envoy solar energy monitor."""
+"""Sensor entities for Enphase gateway integration."""
 from __future__ import annotations
-
-import datetime
 
 from time import strftime, localtime
 
@@ -14,148 +12,178 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import BATTERY_ENERGY_DISCHARGED_SENSOR, BATTERY_ENERGY_CHARGED_SENSOR, COORDINATOR, DOMAIN, NAME, SENSORS, ICON
+from .const import (
+    BATTERY_ENERGY_DISCHARGED_SENSOR, BATTERY_ENERGY_CHARGED_SENSOR, 
+    COORDINATOR, DOMAIN, NAME, SENSORS, ENCHARGE_SENSORS, ICON
+)
+
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
-) -> None:
+        hass: HomeAssistant,
+        config_entry: ConfigEntry,
+        async_add_entities: AddEntitiesCallback) -> None:
     """Set up envoy sensor platform."""
     data = hass.data[DOMAIN][config_entry.entry_id]
     coordinator = data[COORDINATOR]
-    name = data[NAME]
-
+    device_name = data[NAME]
     entities = []
+    
     for sensor_description in SENSORS:
-        if (sensor_description.key == "inverters"):
-            if (coordinator.data.get("inverters_production") is not None):
-                for inverter in coordinator.data["inverters_production"]:
-                    entity_name = f"{name} {sensor_description.name} {inverter}"
-                    split_name = entity_name.split(" ")
-                    serial_number = split_name[-1]
+        if sensor_description.key == "inverters":
+            if inverters := coordinator.data.get("inverters_production"):
+                for inverter in inverters:
+                    entity_name = (
+                        f"{device_name} {sensor_description.name} {inverter}"    
+                    )
                     entities.append(
-                        EnvoyInverterEntity(
-                            sensor_description,
-                            entity_name,
-                            name,
-                            config_entry.unique_id,
-                            serial_number,
-                            coordinator,
+                        GatewayInverterEntity(
+                            description=sensor_description,
+                            entity_name=entity_name,
+                            serial_number=inverter,
+                            device_name=device_name,
+                            device_serial_number=config_entry.unique_id,
+                            coordinator=coordinator,
                         )
                     )
-        elif (sensor_description.key == "batteries"):
-            if (coordinator.data.get("batteries") is not None):
-                for battery in coordinator.data["batteries"]:
-                    entity_name = f"{name} {sensor_description.name} {battery}"
-                    serial_number = battery
+        
+        elif sensor_description.key == "batteries":
+            if storages := coordinator.data.get("batteries").get("ENCHARGE"):
+                for storage in storages:
+                    entity_name = (
+                        f"{device_name} {sensor_description.name} {storage}"
+                    )
                     entities.append(
-                        EnvoyBatteryEntity(
-                            sensor_description,
-                            entity_name,
-                            name,
-                            config_entry.unique_id,
-                            serial_number,
-                            coordinator
+                        GatewayBatteryEntity(
+                            description=sensor_description,
+                            entity_name=entity_name,
+                            serial_number=storage,
+                            device_name=device_name,
+                            device_serial_number=config_entry.unique_id,
+                            coordinator=coordinator
                         )
                     )
 
-        elif (sensor_description.key == "current_battery_capacity"):
-            if (coordinator.data.get("batteries") is not None):
+        elif sensor_description.key == "current_battery_capacity":
+            if coordinator.data.get("batteries"):
                 battery_capacity_entity = TotalBatteryCapacityEntity(
-                    sensor_description,
-                    f"{name} {sensor_description.name}",
-                    name,
-                    config_entry.unique_id,
-                    None,
-                    coordinator
+                    description=sensor_description,
+                    entity_name=f"{device_name} {sensor_description.name}",
+                    serial_number=None,
+                    device_name=device_name,
+                    device_serial_number=config_entry.unique_id,
+                    coordinator=coordinator
                 )
                 entities.append(battery_capacity_entity)
 
+                # entities.append(
+                #     BatteryEnergyChangeEntity(
+                #         BATTERY_ENERGY_CHARGED_SENSOR,
+                #         f"{device_name} {BATTERY_ENERGY_CHARGED_SENSOR.name}",
+                #         device_name,
+                #         config_entry.unique_id,
+                #         None,
+                #         battery_capacity_entity,
+                #         True
+                #     )
+                # )
+
+                # entities.append(
+                #     BatteryEnergyChangeEntity(
+                #         BATTERY_ENERGY_DISCHARGED_SENSOR,
+                #         f"{device_name} {BATTERY_ENERGY_DISCHARGED_SENSOR.name}",
+                #         device_name,
+                #         config_entry.unique_id,
+                #         None,
+                #         battery_capacity_entity,
+                #         False
+                #     )
+                # )
+
+        elif sensor_description.key == "total_battery_percentage":
+            if coordinator.data.get("batteries"):
                 entities.append(
-                    BatteryEnergyChangeEntity(
-                        BATTERY_ENERGY_CHARGED_SENSOR,
-                        f"{name} {BATTERY_ENERGY_CHARGED_SENSOR.name}",
-                        name,
-                        config_entry.unique_id,
-                        None,
-                        battery_capacity_entity,
-                        True
+                    TotalBatteryPercentageEntity(
+                        description=sensor_description,
+                        entity_name=f"{device_name} {sensor_description.name}",
+                        serial_number=None,
+                        device_name=device_name,
+                        device_serial_number=config_entry.unique_id,
+                        coordinator=coordinator
                     )
                 )
-
-                entities.append(
-                    BatteryEnergyChangeEntity(
-                        BATTERY_ENERGY_DISCHARGED_SENSOR,
-                        f"{name} {BATTERY_ENERGY_DISCHARGED_SENSOR.name}",
-                        name,
-                        config_entry.unique_id,
-                        None,
-                        battery_capacity_entity,
-                        False
-                    )
-                )
-
-        elif (sensor_description.key == "total_battery_percentage"):
-            if (coordinator.data.get("batteries") is not None):
-                entities.append(TotalBatteryPercentageEntity(
-                        sensor_description,
-                        f"{name} {sensor_description.name}",
-                        name,
-                        config_entry.unique_id,
-                        None,
-                        coordinator
-                    ))
 
         else:
             data = coordinator.data.get(sensor_description.key)
             if isinstance(data, str) and "not available" in data:
                 continue
-
-            entity_name = f"{name} {sensor_description.name}"
             entities.append(
-                CoordinatedEnvoyEntity(
-                    sensor_description,
-                    entity_name,
-                    name,
-                    config_entry.unique_id,
-                    None,
-                    coordinator,
+                CoordinatedGatewayEntity(
+                    description=sensor_description,
+                    entity_name=f"{device_name} {sensor_description.name}",
+                    serial_number=None,
+                    device_name=device_name,
+                    device_serial_number=config_entry.unique_id,
+                    coordinator=coordinator
                 )
             )
 
+    for sensor_description in ENCHARGE_SENSORS:
+        if storages := coordinator.data.get("encharge"):
+            for storage in storages:
+                device_name = f"Encharge {storage}"
+                entity_name = f"{device_name} {sensor_description.name}"
+                # if not sensor_description.key in storages[storage].keys():
+                #     if sensor_description.key in {"charge", "discharge"}:
+                #         pass
+                #     else:
+                #         continue
+                entities.append(
+                    EnchargeEntity(
+                        description=sensor_description,
+                        entity_name=entity_name,
+                        serial_number=None,
+                        device_name=device_name,
+                        device_serial_number=storage,
+                        parent_device=config_entry.unique_id,
+                        coordinator=coordinator,
+                    )
+                )
+    
     async_add_entities(entities)
 
-class EnvoyEntity(SensorEntity):
-    """Envoy entity"""
 
+class CoordinatedGatewayEntity(SensorEntity, CoordinatorEntity):
+    """Enphase gateway entity."""
+    
     def __init__(
-        self,
-        description,
-        name,
-        device_name,
-        device_serial_number,
-        serial_number,
+            self,
+            description,
+            entity_name,
+            serial_number,
+            device_name,
+            device_serial_number,
+            coordinator,
     ):
-        """Initialize Envoy entity."""
+        """Initialize the Enphase gateway entity."""
         self.entity_description = description
-        self._name = name
+        self._entity_name = entity_name
         self._serial_number = serial_number
         self._device_name = device_name
         self._device_serial_number = device_serial_number
+        CoordinatorEntity.__init__(self, coordinator)
 
     @property
     def name(self):
-        """Return the name of the sensor."""
-        return self._name
+        """Return the name of the sensor entity."""
+        return self._entity_name
 
     @property
     def unique_id(self):
-        """Return the unique id of the sensor."""
+        """Return the unique_id of the sensor entity."""
         if self._serial_number:
             return self._serial_number
-        if self._device_serial_number:
-            return f"{self._device_serial_number}_{self.entity_description.key}"
+        if serial := self._device_serial_number:
+            return f"{serial}_{self.entity_description.key}"
 
     @property
     def icon(self):
@@ -166,7 +194,7 @@ class EnvoyEntity(SensorEntity):
     def extra_state_attributes(self):
         """Return the state attributes."""
         return None
-
+    
     @property
     def device_info(self) -> DeviceInfo | None:
         """Return the device_info of the device."""
@@ -178,261 +206,256 @@ class EnvoyEntity(SensorEntity):
             model="Envoy",
             name=self._device_name,
         )
-
-class CoordinatedEnvoyEntity(EnvoyEntity, CoordinatorEntity):
-    def __init__(
-        self,
-        description,
-        name,
-        device_name,
-        device_serial_number,
-        serial_number,
-        coordinator,
-    ):
-        EnvoyEntity.__init__(self, description, name, device_name, device_serial_number, serial_number)
-        CoordinatorEntity.__init__(self, coordinator)
-
+    
     @property
     def native_value(self):
         """Return the state of the sensor."""
         return self.coordinator.data.get(self.entity_description.key)
+        
 
-class EnvoyInverterEntity(CoordinatedEnvoyEntity):
-    """Envoy inverter entity."""
-
-    def __init__(
-        self,
-        description,
-        name,
-        device_name,
-        device_serial_number,
-        serial_number,
-        coordinator,
-    ):
-        super().__init__(
-            description=description,
-            name=name,
-            device_name=device_name,
-            device_serial_number=device_serial_number,
-            serial_number=serial_number,
-            coordinator=coordinator
-        )
+class GatewayInverterEntity(CoordinatedGatewayEntity):
+    """Gateway Inverter entity."""
 
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        if (
-            self.coordinator.data.get("inverters_production") is not None
-        ):
-            return self.coordinator.data.get("inverters_production").get(
-                self._serial_number
-            )[0]
-
+        if inv_prod := self.coordinator.data.get("inverters_production"):
+            return inv_prod.get(self._serial_number)[0]
         return None
 
     @property
     def extra_state_attributes(self):
         """Return the state attributes."""
-        if (
-            self.coordinator.data.get("inverters_production") is not None
-        ):
-            value = self.coordinator.data.get("inverters_production").get(
-                self._serial_number
-            )[1]
+        if inv_prod := self.coordinator.data.get("inverters_production"):
+            value = inv_prod.get(self._serial_number)[1]
             return {"last_reported": value}
+        return None        
+        
 
-        return None
-
-class EnvoyBatteryEntity(CoordinatedEnvoyEntity):
-    """Envoy battery entity."""
-
-    def __init__(
-        self,
-        description,
-        name,
-        device_name,
-        device_serial_number,
-        serial_number,
-        coordinator,
-    ):
-        super().__init__(
-            description=description,
-            name=name,
-            device_name=device_name,
-            device_serial_number=device_serial_number,
-            serial_number=serial_number,
-            coordinator=coordinator
-        )
+class GatewayBatteryEntity(CoordinatedGatewayEntity):
+    """Gateway Battery entity."""
 
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        if (
-            self.coordinator.data.get("batteries") is not None
-        ):
-            return self.coordinator.data.get("batteries").get(
-                self._serial_number
-            ).get("percentFull")
-
+        if storages := self.coordinator.data.get("batteries").get("ENCHARGE"):
+            return storages.get(self._serial_number).get("percentFull")
         return None
 
     @property
     def extra_state_attributes(self):
         """Return the state attributes."""
-        if (
-            self.coordinator.data.get("batteries") is not None
-        ):
-            battery = self.coordinator.data.get("batteries").get(
-                self._serial_number
-            )
+        if storages := self.coordinator.data.get("batteries").get("ENCHARGE"):
+            storage = storages.get(self._serial_number)
             last_reported = strftime(
-                "%Y-%m-%d %H:%M:%S", localtime(battery.get("last_rpt_date"))
+                "%Y-%m-%d %H:%M:%S", localtime(storage.get("last_rpt_date"))
             )
             return {
                 "last_reported": last_reported,
-                "capacity": battery.get("encharge_capacity")
+                "capacity": storage.get("encharge_capacity")
             }
-
         return None
 
-class TotalBatteryCapacityEntity(CoordinatedEnvoyEntity):
-    def __init__(
-        self,
-        description,
-        name,
-        device_name,
-        device_serial_number,
-        serial_number,
-        coordinator,
-    ):
-        super().__init__(
-            description=description,
-            name=name,
-            device_name=device_name,
-            device_serial_number=device_serial_number,
-            serial_number=serial_number,
-            coordinator=coordinator
-        )
 
+class TotalBatteryCapacityEntity(CoordinatedGatewayEntity):
+    """Total capacity entity."""
+    
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        batteries = self.coordinator.data.get("batteries")
-        if (
-            batteries is not None
-        ):
+        if storages := self.coordinator.data.get("batteries").get("ENCHARGE"):
             total = 0
-            for battery in batteries:
-                percentage = batteries.get(battery).get("percentFull")
-                capacity = batteries.get(battery).get("encharge_capacity")
+            for storage in storages.values():
+                percentage = storage.get("percentFull")
+                capacity = storage.get("encharge_capacity")
                 total += round(capacity * (percentage / 100.0))
-
             return total
-
         return None
 
 
-class TotalBatteryPercentageEntity(CoordinatedEnvoyEntity):
-    def __init__(
-        self,
-        description,
-        name,
-        device_name,
-        device_serial_number,
-        serial_number,
-        coordinator,
-    ):
-        super().__init__(
-            description=description,
-            name=name,
-            device_name=device_name,
-            device_serial_number=device_serial_number,
-            serial_number=serial_number,
-            coordinator=coordinator
-        )
-
+class TotalBatteryPercentageEntity(CoordinatedGatewayEntity):
+    """Total battery percentage entity."""
+    
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        batteries = self.coordinator.data.get("batteries")
-        if (
-            batteries is not None
-        ):
-            battery_sum = 0
-            for battery in batteries:
-                battery_sum += batteries.get(battery).get("percentFull", 0)
+        if storages := self.coordinator.data.get("batteries").get("ENCHARGE"):
+            curr_capacity = 0
+            total_capacity = 0
+            for storage in storages.values():
+                percentage = storage.get("percentFull")
+                capacity = storage.get("encharge_capacity")
+                curr_capacity += round(capacity * (percentage / 100.0))
+                total_capacity += capacity
+            return round((curr_capacity / total_capacity) * 100)
+        return None        
 
-            return round(battery_sum / len(batteries), 2)
 
-        return None
-
-class BatteryEnergyChangeEntity(EnvoyEntity):
+class EnchargeEntity(SensorEntity, CoordinatorEntity):
+    """Encharge storage entitiy."""
+    
     def __init__(
-        self,
-        description,
-        name,
-        device_name,
-        device_serial_number,
-        serial_number,
-        total_battery_capacity_entity,
-        positive: bool
+            self,
+            description,
+            entity_name,
+            serial_number,
+            device_name,
+            device_serial_number,
+            parent_device,
+            coordinator,
     ):
-        super().__init__(
-            description=description,
-            name=name,
-            device_name=device_name,
-            device_serial_number=device_serial_number,
-            serial_number=serial_number,
+        """Initialize the Encharge storage entity."""
+        self.entity_description = description
+        self._entity_name = entity_name
+        self._serial_number = serial_number
+        self._device_name = device_name
+        self._device_serial_number = device_serial_number
+        self._parent_device = parent_device
+        CoordinatorEntity.__init__(self, coordinator)
+
+    @property
+    def name(self):
+        """Return the name of the sensor entity."""
+        return self._entity_name
+
+    @property
+    def icon(self):
+        """Icon to use in the frontend, if any."""
+        return ICON
+
+    @property
+    def unique_id(self):
+        """Return the unique id of the sensor."""
+        if self._serial_number:
+            return self._serial_number
+        if serial := self._device_serial_number:
+            return f"{serial}_{self.entity_description.key}"
+     
+    @property
+    def device_info(self) -> DeviceInfo | None:   
+        """Return the device_info of the device."""
+        return DeviceInfo(
+            identifiers={(DOMAIN, str(self._device_serial_number))},
+            manufacturer="Enphase",
+            model="Encharge",
+            name=self._device_name,
+            via_device=(DOMAIN, self._parent_device)
         )
+    
+    @property
+    def native_value(self):
+        """Return the state of the sensor."""
+        if storages := self.coordinator.data.get("encharge"):
+            storage = storages.get(self._device_serial_number)
+            
+            if self.entity_description.key == "current_capacity":
+                percentage = storage.get("percentFull")
+                capacity = storage.get("encharge_capacity")
+                if percentage and capacity:
+                    return round(capacity * (percentage / 100.0))
+            
+            elif self.entity_description.key == "real_power_mw":
+                if real_power := storage.get("real_power_mw"):
+                    return round(real_power / 1000)
 
-        self._sensor_source = total_battery_capacity_entity
-        self._positive = positive
-        self._state = 0
-        self._attr_last_reset = datetime.datetime.now()
-
-    async def async_added_to_hass(self):
-        """Handle entity which will be added."""
-        await super().async_added_to_hass()
-
-        @callback
-        def calc_change(event):
-            """Handle the sensor state changes."""
-            old_state = event.data.get("old_state")
-            new_state = event.data.get("new_state")
-
-            if (
-                old_state is None
-                or old_state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE)
-                or new_state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE)
-            ):
-                self._state = 0
-
+            elif self.entity_description.key == "charge":
+                if real_power := storage.get("real_power_mw"):
+                    real_power = round(real_power / 1000)
+                    return real_power if real_power > 0 else 0
+                
+            elif self.entity_description.key == "discharge":
+                if real_power := storage.get("real_power_mw"):
+                    real_power = round(real_power / 1000)
+                    return real_power if real_power < 0 else 0
+            
             else:
-                old_state_value = int(old_state.state)
-                new_state_value = int(new_state.state)
-
-                if (self._positive):
-                    if (new_state_value > old_state_value):
-                        self._state = new_state_value - old_state_value
-                    else:
-                        self._state = 0
-
-                else:
-                    if (old_state_value > new_state_value):
-                        self._state = old_state_value - new_state_value
-                    else:
-                        self._state = 0
-
-            self._attr_last_reset = datetime.datetime.now()
-            self.async_write_ha_state()
-
-        self.async_on_remove(
-            async_track_state_change_event(
-                self.hass, self._sensor_source.entity_id, calc_change
-            )
-        )
+                return storage.get(self.entity_description.key)
+            
+        return None
 
     @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        return self._state
+    def extra_state_attributes(self):
+        """Return the state attributes."""
+        if storages := self.coordinator.data.get("encharge"):
+            storage = storages.get(self._device_serial_number)
+            if last_reported := storage.get("last_rpt_date"):
+                return {
+                    "last_reported": strftime(
+                        "%Y-%m-%d %H:%M:%S", localtime(last_reported)
+                    )
+                }
+            
+        return None
+
+
+# class BatteryEnergyChangeEntity(GatewayEntity):
+#     """Battery energy change entity."""
+    
+#     def __init__(
+#             self,
+#             description,
+#             name,
+#             device_name,
+#             device_serial_number,
+#             serial_number,
+#             total_battery_capacity_entity,
+#             positive: bool
+#     ):
+#         super().__init__(
+#             description=description,
+#             name=name,
+#             device_name=device_name,
+#             device_serial_number=device_serial_number,
+#             serial_number=serial_number,
+#         )
+#         self._sensor_source = total_battery_capacity_entity
+#         self._positive = positive
+#         self._state = 0
+#         self._attr_last_reset = datetime.datetime.now()
+
+#     async def async_added_to_hass(self):
+#         """Handle entity which will be added."""
+#         await super().async_added_to_hass()
+
+#         @callback
+#         def calc_change(event):
+#             """Handle the sensor state changes."""
+#             old_state = event.data.get("old_state")
+#             new_state = event.data.get("new_state")
+
+#             if (
+#                 old_state is None
+#                 or old_state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE)
+#                 or new_state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE)
+#             ):
+#                 self._state = 0
+
+#             else:
+#                 old_state_value = int(old_state.state)
+#                 new_state_value = int(new_state.state)
+
+#                 if (self._positive):
+#                     if (new_state_value > old_state_value):
+#                         self._state = new_state_value - old_state_value
+#                     else:
+#                         self._state = 0
+
+#                 else:
+#                     if (old_state_value > new_state_value):
+#                         self._state = old_state_value - new_state_value
+#                     else:
+#                         self._state = 0
+
+#             self._attr_last_reset = datetime.datetime.now()
+#             self.async_write_ha_state()
+
+#         self.async_on_remove(
+#             async_track_state_change_event(
+#                 self.hass, self._sensor_source.entity_id, calc_change
+#             )
+#         )
+
+#     @property
+#     def native_value(self):
+#         """Return the state of the sensor."""
+#         return self._state

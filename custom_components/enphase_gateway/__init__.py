@@ -6,15 +6,17 @@ from datetime import timedelta
 
 import httpx
 import async_timeout
-from numpy import isin
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import COORDINATOR, DOMAIN, NAME, PLATFORMS, SENSORS, CONF_USE_TOKEN_AUTH, CONF_SERIAL_NUM
 from .gateway_reader import GatewayReader
+from .const import (
+    COORDINATOR, DOMAIN, NAME, PLATFORMS, SENSORS, CONF_USE_TOKEN_AUTH, 
+    CONF_SERIAL_NUM, ENCHARGE_SENSORS
+)
 
 
 SCAN_INTERVAL = timedelta(seconds=60)
@@ -47,26 +49,40 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 raise ConfigEntryAuthFailed from err
             except httpx.HTTPError as err:
                 raise UpdateFailed(f"Error communicating with API: {err}") from err
-
+            
             for description in SENSORS:
                 if description.key == "inverters":
-                    data[
-                        "inverters_production"
-                    ] = await gateway_reader.inverters_production()
+                    production = await gateway_reader.inverters_production()
+                    data["inverters_production"] = production
 
                 elif description.key == "batteries":
-                    battery_data = await gateway_reader.battery_storage()
-                    if isinstance(battery_data, list) and len(battery_data) > 0:
-                        battery_dict = {}
-                        for item in battery_data:
-                            battery_dict[item["serial_num"]] = item
-
-                        data[description.key] = battery_dict
-
-                elif (description.key not in ["current_battery_capacity", "total_battery_percentage"]):
-                    data[description.key] = await getattr(
-                        gateway_reader, description.key
-                    )()
+                    storages = await gateway_reader.battery_storage()
+                    if isinstance(storages, dict) and len(storages) > 0:
+                        data[description.key] = storages
+                        # for storage in storages:
+                        #     data[storage] = storages[storage]
+                
+                elif description.key in {
+                        "current_battery_capacity", 
+                        "total_battery_percentage"
+                }:
+                    continue
+                
+                else:
+                    func = getattr(gateway_reader, description.key)
+                    data[description.key] = await func()
+            
+            if ENCHARGE_SENSORS:
+                storages = await gateway_reader.battery_storage()
+                storages = storages.get("ENCHARGE")
+                ensemble_power = await gateway_reader.ensemble_power()
+                if isinstance(storages, dict) and len(storages) > 0:
+                    for key in storages.keys():
+                        if ensemble_power:
+                            if power := ensemble_power.get(key):
+                                storages[key].update(power)
+                     
+                    data["encharge"] = storages
 
             data["grid_status"] = await gateway_reader.grid_status()
 
