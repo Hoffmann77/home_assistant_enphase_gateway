@@ -5,19 +5,13 @@ import datetime
 #import jwt
 
 
-test1 ={"teyt": 1}
-test2 ={"teyt1": 2}
+
+x = None
+
+print(x.get("test"))
 
 
-def test():
-    return True
 
 
-
-if success := test():
-    print("success")
-    
-else:
-    print("fail")
     
     

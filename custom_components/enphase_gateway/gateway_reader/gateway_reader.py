@@ -35,6 +35,7 @@ ENDPOINT_URL_PRODUCTION_INVERTERS = "{}://{}/api/v1/production/inverters"
 ENDPOINT_URL_PRODUCTION = "{}://{}/production"
 ENDPOINT_URL_CHECK_JWT = "https://{}/auth/check_jwt"
 ENDPOINT_URL_ENSEMBLE_INVENTORY = "{}://{}/ivp/ensemble/inventory"
+ENDPOINT_URL_ENSEMBLE_POWER = "{}://{}/ivp/ensemble/power"
 ENDPOINT_URL_HOME_JSON = "{}://{}/home.json"
 
 _LOGGER = logging.getLogger(__name__)
@@ -43,13 +44,10 @@ _LOGGER = logging.getLogger(__name__)
 GATEWAY_ENDPOINTS = {
     'ENVOY_MODEL_S_METERED': {
         "production_json": ENDPOINT_URL_PRODUCTION_JSON,
-        "ensemble_json": ENDPOINT_URL_ENSEMBLE_INVENTORY,
         "home_json": ENDPOINT_URL_HOME_JSON,
     },
     'ENVOY_MODEL_S_STANDARD': {
-        # "production_json": ENDPOINT_URL_PRODUCTION_JSON,
         "production_v1": ENDPOINT_URL_PRODUCTION_V1,
-        "ensemble_json": ENDPOINT_URL_ENSEMBLE_INVENTORY,
         "home_json": ENDPOINT_URL_HOME_JSON,
     },
     'ENVOY_MODEL_C': {
@@ -60,16 +58,17 @@ GATEWAY_ENDPOINTS = {
     }
 }
 
-STORAGE_ENDPOINTS = {
-    "ENCHARGE": {
-        "ensemble_power": ""}
+# Endpoints for storage data
+ENSEMBLE_ENDPOINTS = {
+    "ensemble_inventory": ENDPOINT_URL_ENSEMBLE_INVENTORY,
+    "ensemble_power": ENDPOINT_URL_ENSEMBLE_POWER,
 }
 
 # Endpoints used to detect the type of gateway.
 GATEWAY_DETECTION_ENDPOINTS = {
     "ENVOY_MODEL_S": {
         "production_json": ENDPOINT_URL_PRODUCTION_JSON,
-        "ensemble_json": ENDPOINT_URL_ENSEMBLE_INVENTORY,
+        "ensemble_inventory": ENDPOINT_URL_ENSEMBLE_INVENTORY,
     },
     "ENVOY_MODEL_C": {
         "production_v1": ENDPOINT_URL_PRODUCTION_V1,
@@ -138,7 +137,7 @@ class GatewayReader:
         self.endpoint_results = {}
         self.meters_enabled = False
         self.device_info = {}
-        #self.fetch_ensemble = False
+        self.fetch_ensemble = False
         self.get_inverters = inverters
         self._async_client = async_client
         self._protocol = "https" if use_token_auth else "http"
@@ -239,8 +238,6 @@ class GatewayReader:
         self.endpoint_results["production_inverters"] = response
         return
     
-    
-    
     async def _update(self, detection=False, gateway_type=None):
         """Fetch all endpoints for the given gateway_type.
         
@@ -265,6 +262,8 @@ class GatewayReader:
             endpoints = GATEWAY_DETECTION_ENDPOINTS[gateway_type]
         else:
             endpoints = GATEWAY_ENDPOINTS[gateway_type]
+            if self.fetch_ensemble:
+                endpoints.update(ENSEMBLE_ENDPOINTS)
         for key, endpoint in endpoints.items():
             await self._update_endpoint(key, endpoint, detection)
             # TODO: check if for loop is viable for async.
@@ -337,7 +336,6 @@ class GatewayReader:
 
         else:
             return resp
-            
 
     async def _setup_gateway(self):
         """Try to detect and setup the Enphase Gateway.
@@ -378,11 +376,11 @@ class GatewayReader:
             
             func_name = f"_setup_{gateway_type.lower()}"
             if setup_function := getattr(self, func_name, None):
-                if await setup_function(): #!!! maybe self.
+                if await setup_function():
                     self.endpoint_results = {}
                     return
                 else:
-                    continue   
+                    continue
             else:
                 raise RuntimeError("Missing setup function: {gateway_type}")
         
@@ -400,10 +398,16 @@ class GatewayReader:
                         production_json.json()
                     )
                     self.gateway_type = "ENVOY_MODEL_S_METERED"
-                    return True
                 else:
                     self.gateway_type = "ENVOY_MODEL_S_STANDARD"
-                    return True
+        
+        if self.gateway_type:
+            if inventory := self.endpoint_results.get("ensemble_inventory"):
+                inventory = inventory.json()
+                if len(inventory) > 0 and "devices" in inventory[0].keys():
+                    self.fetch_ensemble = True     
+            return True
+        
         return False
     
     async def _setup_envoy_model_c(self):
@@ -777,34 +781,62 @@ class GatewayReader:
         return response_dict
 
     async def battery_storage(self):
-        """Return battery data from Envoys that support and have batteries installed."""
+        """Return battery storages for supported gateways.
+        
+        For Envoys that support batteries but do not have an Enphase AC battery
+        installed the 'percentFull' key will not be availiable in the
+        production_json result.
+        
+        For Envoys that have an Encharge storage installed the ensemble 
+        endpoints can be used to fetch battery data.
+        
+
+        Returns
+        -------
+        dict
+            Battery dict.
+
+        """
         if self.gateway_type in {"ENVOY_MODEL_C", "ENVOY_MODEL_LEGACY"}:
             return self.MESSAGES["battery_not_available"]
 
         try:
-            raw_json = self.endpoint_results["production_json"].json()
+            production_json = self.endpoint_results["production_json"].json()
         except JSONDecodeError:
             return None
-
-        """For Envoys that support batteries but do not have them installed the"""
-        """percentFull will not be available in the JSON results. The API will"""
-        """only return battery data if batteries are installed."""
-        if "percentFull" not in raw_json["storage"][0].keys():
-            # "ENCHARGE" batteries are part of the "ENSEMBLE" api instead
-            # Check to see if it's there. Enphase has too much fun with these names
-            if self.endpoint_results.get("ensemble_json") is not None:
-                ensemble_json = self.endpoint_results["ensemble_json"].json()
-                if len(ensemble_json) > 0 and "devices" in ensemble_json[0].keys():
-                    return ensemble_json[0]["devices"]
-            return self.MESSAGES["battery_not_available"]
         
-        return raw_json["storage"][0]
-
-    async def battery_storage_test(self):
-        pass
+        if "percentFull" in production_json["storage"][0].keys():
+            storage_json = production_json["storage"][0]
+            return {"acb": storage_json}
+            
+        elif _inventory := self.endpoint_results.get("ensemble_inventory"):
+            ensemble_inventory = _inventory.json()
+            storages = {}
+            for entry in ensemble_inventory:
+                storage_type = entry.get("type")
+                devices = entry.get("devices")
+                storages.update({storage_type: devices})
+                if devices and storage_type == "ENCHARGE":
+                    storages.update(
+                        {storage_type: {
+                            item["serial_num"]: item for item in devices
+                            }
+                        }
+                    )
+            if storages:
+                return storages
+              
+        return self.MESSAGES["battery_not_available"]  
+    
+    async def ensemble_power(self):
+        """Return Encharge battery power values."""
+        if ensemble_power := self.endpoint_results.get("ensemble_power"):
+            ensemble_power = ensemble_power.json()
+            return {
+                item["serial_num"]: item for item in ensemble_power["devices:"]
+            }
+        return None
         
-
-
     async def grid_status(self):
         """Return grid status reported by Envoy."""
         if self.endpoint_results.get("home_json") is not None:
@@ -813,7 +845,6 @@ class GatewayReader:
                 return home_json["enpower"]["grid_status"]
         
         return self.MESSAGES["grid_status_not_available"]
-
 
     def run_in_console(self):
         """If running this module directly, print all the values in the console."""

@@ -111,6 +111,51 @@ SENSORS = (
     ),
 )
 
+ENCHARGE_SENSORS = (
+    SensorEntityDescription(
+        key="encharge_capacity",
+        name="Capacity",
+        native_unit_of_measurement=ENERGY_WATT_HOUR,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.ENERGY
+    ),
+    SensorEntityDescription(
+        key="current_capacity",
+        name="Current Capacity",
+        native_unit_of_measurement=ENERGY_WATT_HOUR,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.ENERGY
+    ),
+    SensorEntityDescription(
+        key="percentFull",
+        name="State of charge",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.BATTERY
+    ),
+    SensorEntityDescription(
+        key="real_power_mw",
+        name="Current power",
+        native_unit_of_measurement=POWER_WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER
+    ),
+    SensorEntityDescription(
+        key="charge",
+        name="Current charging power",
+        native_unit_of_measurement=POWER_WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER
+    ),
+    SensorEntityDescription(
+        key="discharge",
+        name="Current discharging power",
+        native_unit_of_measurement=POWER_WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER
+    ),
+)
+
 BATTERY_ENERGY_DISCHARGED_SENSOR = SensorEntityDescription(
     key="battery_energy_discharged",
     name="Battery Energy Discharged",
