@@ -37,6 +37,7 @@ ENDPOINT_URL_CHECK_JWT = "https://{}/auth/check_jwt"
 ENDPOINT_URL_ENSEMBLE_INVENTORY = "{}://{}/ivp/ensemble/inventory"
 ENDPOINT_URL_ENSEMBLE_POWER = "{}://{}/ivp/ensemble/power"
 ENDPOINT_URL_HOME_JSON = "{}://{}/home.json"
+ENDPOINT_URL_INFO_XML = "{}://{}/info.xml"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -443,19 +444,20 @@ class GatewayReader:
             return None
 
     async def get_serial_number(self):
-        """Get the Envoy serial number."""
-        response = await self._async_get(
-            f"http{self._protocol}://{self.host}/info.xml",
-            follow_redirects=True,
-        )
-        if not response.text:
+        """Try to fetch the serial number from /info.xml."""
+        url = ENDPOINT_URL_INFO_XML.format(self._protocol, self.host)
+        try:
+            response = await self._async_get(url, follow_redirects=True).text
+        except:
             return None
-        if "<sn>" in response.text:
-            return response.text.split("<sn>")[1].split("</sn>")[0]
-        match = SERIAL_REGEX.search(response.text)
-        if match:
-            return match.group(1)
-
+        else:
+            if "<sn>" in response:
+                return response.split("<sn>")[1].split("</sn>")[0]  
+            elif match := SERIAL_REGEX.search(response):
+                return match.group(1)
+        
+        return None
+        
     def create_connect_errormessage(self):
         """Create error message if unable to connect to Envoy."""
         return (
