@@ -92,7 +92,7 @@ class EnphaseToken:
             self._token_cache_filepath = BASE_DIR.joinpath("token_cache.json")
 
         if token_raw:
-            self._init_from_config_token(token_raw)
+            self._init_from_token_raw(token_raw)
 
     @property
     def token(self):
@@ -167,7 +167,7 @@ class EnphaseToken:
         _LOGGER.debug(f"Preparing token: {self._token}")
         if not self._token:
             _LOGGER.debug("Found empty token - Populating token")
-            if self.use_token_cache:
+            if self._use_token_cache:
                 _LOGGER.debug("Populating from token cache")   
                 if not await self._init_from_token_cache():
                     _LOGGER.debug("Fetching new token from Enlighten")
@@ -190,7 +190,7 @@ class EnphaseToken:
                     )
         else:
             pass
-        
+
     async def refresh(self):
         """Refresh the Enphase token.
         
@@ -271,22 +271,8 @@ class EnphaseToken:
             _LOGGER.debug("Could not load token from cache")
             return False
     
-    async def _init_from_config_token(self, token_raw):
-        """Initialize EnphaseToken with the token provided by the user.
-        
-        Parameters
-        ----------
-        token_raw : str
-            Enphase token.
-
-        """
-        _LOGGER.debug(
-            f"Initializing using token_raw provided by the user: {token_raw}"
-        )
-        await self._init_from_token_raw(token_raw)
-
     async def _init_from_token_raw(self, token_raw):
-        """Perform initialization for a raw token provided by the user.
+        """Initialize from a raw token.
         
         Decode and check the token to validate it's integrity and validity.
         
@@ -305,6 +291,7 @@ class EnphaseToken:
         None.
 
         """
+        _LOGGER.debug(f"Initialize using raw token: {token_raw}")
         try:
             decoded = await self._decode_token(token_raw)
             cookies = await self._refresh_token_cookies(token_raw)
