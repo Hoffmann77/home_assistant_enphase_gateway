@@ -7,10 +7,11 @@ from datetime import datetime, timezone, timedelta
 
 import httpx
 import jwt
+from jwt.exceptions import InvalidTokenError as jwt_InvalidTokenError
 from bs4 import BeautifulSoup
 
 from .http import async_get, async_post
-from .exceptions import TokenError, TokenConfigurationError
+from .exceptions import TokenConfigurationError, InvalidEnphaseTokenError
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,7 +69,7 @@ class EnphaseToken:
         self.enlighten_password = enlighten_password
         self.gateway_serial_num = gateway_serial_num
         self.expiration_date = None
-        self._use_token_cache = use_token_cache
+        self._use_token_cache = use_token_cache if not token_raw else False
         self._renewal_buffer = 600
         self._token = None
         self._type = None
@@ -89,9 +90,9 @@ class EnphaseToken:
             self._token_cache_filepath = Path(token_cache_filepath).resolve()
         else:
             self._token_cache_filepath = BASE_DIR.joinpath("token_cache.json")
-            
+
         if token_raw:
-            self._init_from_token_raw(token_raw)   
+            self._init_from_token_raw(token_raw)
 
     @property
     def token(self):
@@ -163,10 +164,17 @@ class EnphaseToken:
         None.
 
         """
-        _LOGGER.debug(f"Preparing Enphase token: {self._token}")
+        _LOGGER.debug(f"Preparing token: {self._token}")
         if not self._token:
-            _LOGGER.debug("Found empty token - Refreshing Enphase token")
-            await self.refresh()
+            _LOGGER.debug("Found empty token - Populating token")
+            if self._use_token_cache:
+                _LOGGER.debug("Populating from token cache")   
+                if not await self._init_from_token_cache():
+                    _LOGGER.debug("Fetching new token from Enlighten")
+                    await self.refresh()
+            else:
+                _LOGGER.debug("Fetching new token from Enlighten")
+                await self.refresh()    
         elif self.is_populated:
             _LOGGER.debug(f"Token is populated: {self._token}")
             if self.is_expired:
@@ -182,7 +190,7 @@ class EnphaseToken:
                     )
         else:
             pass
-        
+
     async def refresh(self):
         """Refresh the Enphase token.
         
@@ -209,11 +217,14 @@ class EnphaseToken:
             await self.refresh_cookies()
         except httpx.HTTPError:
             pass
+        if self._use_token_cache:
+            self._save_token_to_cache(token_raw)
     
     async def refresh_cookies(self):
         """Refresh the cookies.
         
-        Refresh self._cookies with the cookies returned by self._check_token.
+        Refresh self._cookies with the cookies returned by 
+        self._refresh_token_cookies.
 
         Returns
         -------
@@ -222,7 +233,7 @@ class EnphaseToken:
 
         """
         try:
-            cookies = await self._check_token(self._token)
+            cookies = await self._refresh_token_cookies(self._token)
         except httpx.HTTPError:
             return False
         else:
@@ -232,8 +243,36 @@ class EnphaseToken:
             else:
                 return False
     
+    async def _init_from_token_cache(self):
+        """Initialize EnphaseToken from the token cache.
+        
+        Returns
+        -------
+        bool
+            True if sucessfully initialized from the cache. False otherwise.
+
+        """
+        if token_raw := await self._load_token_from_cache():
+            _LOGGER.debug(f"Loaded token from cache: {token_raw}")
+            try:
+                _LOGGER.debug(
+                    f"Initializing using token_raw from the cache: {token_raw}"
+                )
+                await self._init_from_token_raw(token_raw)
+            except httpx.HTTPError:
+                return False
+            except jwt.exceptions.InvalidTokenError:
+                return False
+            except InvalidEnphaseTokenError:
+                return False
+            else:
+                return True
+        else:
+            _LOGGER.debug("Could not load token from cache")
+            return False
+    
     async def _init_from_token_raw(self, token_raw):
-        """Perform initialization for a raw token provided by the user.
+        """Initialize from a raw token.
         
         Decode and check the token to validate it's integrity and validity.
         
@@ -252,20 +291,16 @@ class EnphaseToken:
         None.
 
         """
-        _LOGGER.debug(f"Initializing token provided by the user: {token_raw}")
+        _LOGGER.debug(f"Initialize using raw token: {token_raw}")
         try:
             decoded = await self._decode_token(token_raw)
-            cookies = await self._check_token(token_raw)
-        except jwt.exceptions.InvalidTokenError as err:
-            _LOGGER.debug(f"Error decoding the token: {err}")
-            raise TokenError(
-                f"Error decoding the token you provided: {err}"
-            )
+            cookies = await self._refresh_token_cookies(token_raw)
         except httpx.HTTPError as err:
-            _LOGGER.debug(f"Error checking the token: {err}")
-            raise TokenError(
-                f"Error while checking token validity: {err}"
-            )
+            _LOGGER.debug(f"Error while checking the token: {err}")
+            raise err
+        except jwt.exceptions.InvalidTokenError as err:
+            _LOGGER.debug(f"Error while decoding the token: {err}")
+            raise err
         else:
             if cookies:
                 self._token = token_raw
@@ -277,15 +312,9 @@ class EnphaseToken:
                 _LOGGER.debug(f"Token successfully initialized: {self._token}")
             else:
                 _LOGGER.debug("Token is not valid")
-                raise TokenError(
-                    f"The token you provided is not valid: {token_raw}"
-                )
+                raise InvalidEnphaseTokenError(f"Token invalid: {token_raw}")
     
-    async def _init_from_token_cache(self):
-        # TODO: implement initialization from token cache.
-        pass
-        
-    async def _check_token(self, token_raw):
+    async def _refresh_token_cookies(self, token_raw):
         """Call '/auth/check_jwt' to check if token is valid.
         
         Send a HTTP GET request and parse the response.
@@ -296,6 +325,11 @@ class EnphaseToken:
         ----------
         token_raw : str
             Enphase token.
+            
+        Raises
+        ------
+        httpx.HTTPError
+            HTTP error httpx.HTTP.
         
         Returns
         -------
@@ -305,7 +339,7 @@ class EnphaseToken:
         """
         _LOGGER.debug("Calling '/auth/check_jwt' to check token")
         async_client = httpx.AsyncClient(verify=False, timeout=10.0)
-        auth_header = {"Authorization": "Bearer " + self._token}
+        auth_header = {"Authorization": "Bearer " + token_raw}
         url = ENDPOINT_URL_CHECK_JWT.format(self.host)
         try:
             resp = await async_get(url, async_client, headers=auth_header)
@@ -315,7 +349,7 @@ class EnphaseToken:
         else:
             soup = BeautifulSoup(resp.text, features="html.parser")
             validity = soup.find("h2").contents[0]
-            if validity == "Valid token.":
+            if validity == "Valid token":
                 _LOGGER.debug("Token is valid")
                 return resp.cookies
             else:
@@ -406,7 +440,7 @@ class EnphaseToken:
         else:
             return resp
 
-    async def _load_from_cache(self):
+    async def _load_token_from_cache(self):
         """Return the raw token from the cache.
 
         Returns
@@ -420,9 +454,10 @@ class EnphaseToken:
                 token_json = json.load(f)
                 return token_json.get("EnphaseToken", None)
         else:
+            _LOGGER.debug("Error while checking Path token_cache_filepath")
             return None
 
-    async def _save_to_cache(self, token_raw):
+    async def _save_token_to_cache(self, token_raw):
         """Save the raw token to the cache.
         
         Parameters
