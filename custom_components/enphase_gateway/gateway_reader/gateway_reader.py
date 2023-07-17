@@ -35,7 +35,9 @@ ENDPOINT_URL_PRODUCTION_INVERTERS = "{}://{}/api/v1/production/inverters"
 ENDPOINT_URL_PRODUCTION = "{}://{}/production"
 ENDPOINT_URL_CHECK_JWT = "https://{}/auth/check_jwt"
 ENDPOINT_URL_ENSEMBLE_INVENTORY = "{}://{}/ivp/ensemble/inventory"
+ENDPOINT_URL_ENSEMBLE_POWER = "{}://{}/ivp/ensemble/power"
 ENDPOINT_URL_HOME_JSON = "{}://{}/home.json"
+ENDPOINT_URL_INFO_XML = "{}://{}/info.xml"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,13 +45,10 @@ _LOGGER = logging.getLogger(__name__)
 GATEWAY_ENDPOINTS = {
     'ENVOY_MODEL_S_METERED': {
         "production_json": ENDPOINT_URL_PRODUCTION_JSON,
-        "ensemble_json": ENDPOINT_URL_ENSEMBLE_INVENTORY,
         "home_json": ENDPOINT_URL_HOME_JSON,
     },
     'ENVOY_MODEL_S_STANDARD': {
-        # "production_json": ENDPOINT_URL_PRODUCTION_JSON,
         "production_v1": ENDPOINT_URL_PRODUCTION_V1,
-        "ensemble_json": ENDPOINT_URL_ENSEMBLE_INVENTORY,
         "home_json": ENDPOINT_URL_HOME_JSON,
     },
     'ENVOY_MODEL_C': {
@@ -60,10 +59,17 @@ GATEWAY_ENDPOINTS = {
     }
 }
 
+# Endpoints for storage data
+ENSEMBLE_ENDPOINTS = {
+    "ensemble_inventory": ENDPOINT_URL_ENSEMBLE_INVENTORY,
+    "ensemble_power": ENDPOINT_URL_ENSEMBLE_POWER,
+}
+
 # Endpoints used to detect the type of gateway.
 GATEWAY_DETECTION_ENDPOINTS = {
     "ENVOY_MODEL_S": {
         "production_json": ENDPOINT_URL_PRODUCTION_JSON,
+        "ensemble_inventory": ENDPOINT_URL_ENSEMBLE_INVENTORY,
     },
     "ENVOY_MODEL_C": {
         "production_v1": ENDPOINT_URL_PRODUCTION_V1,
@@ -131,6 +137,8 @@ class GatewayReader:
         self.use_token_auth = use_token_auth
         self.endpoint_results = {}
         self.meters_enabled = False
+        self.device_info = {}
+        self.fetch_ensemble = False
         self.get_inverters = inverters
         self._async_client = async_client
         self._protocol = "https" if use_token_auth else "http"
@@ -230,7 +238,7 @@ class GatewayReader:
             response.raise_for_status()
         self.endpoint_results["production_inverters"] = response
         return
-
+    
     async def _update(self, detection=False, gateway_type=None):
         """Fetch all endpoints for the given gateway_type.
         
@@ -255,11 +263,13 @@ class GatewayReader:
             endpoints = GATEWAY_DETECTION_ENDPOINTS[gateway_type]
         else:
             endpoints = GATEWAY_ENDPOINTS[gateway_type]
+            if self.fetch_ensemble:
+                endpoints.update(ENSEMBLE_ENDPOINTS)
         for key, endpoint in endpoints.items():
-            await self._update_endpoint(key, endpoint)
+            await self._update_endpoint(key, endpoint, detection)
             # TODO: check if for loop is viable for async.
     
-    async def _update_endpoint(self, key, url):
+    async def _update_endpoint(self, key, url, detection):
         """Fetch the given endpoint and update the endpoint_results dict."""
         formatted_url = url.format(self._protocol, self.host)
         response = await self._async_get(
@@ -327,130 +337,6 @@ class GatewayReader:
 
         else:
             return resp
-            
-
-    # async def _async_get(
-    #         self, url, handle_401=True, raise_for_status=True, **kwargs):
-    #     """Fetch endpoint and retry in case of a transport error.
-        
-    #     Parameters
-    #     ----------
-    #     url : str
-    #         Endpoint url.
-    #     handle_401 : bool, optional
-    #         If True try to resolve 401 error. The default is False.
-    #     **kwargs : dict, optional
-    #         Extra arguments to httpx client.post()..
-
-    #     Returns
-    #     -------
-    #     TYPE
-    #         DESCRIPTION.
-
-    #     """
-    #     for attempt in range(1, 4):
-    #         _LOGGER.debug(
-    #             f"HTTP GET Attempt #{attempt}: {url}: Header:{self._auth_header}"
-    #         )
-    #         async with self.async_client as client:
-    #             try:
-    #                 r = await client.get(
-    #                     url,
-    #                     headers=self._auth_header,
-    #                     cookies=self._cookies,
-    #                     **kwargs,
-    #                 )
-    #                 if raise_for_status:
-    #                     r.raise_for_status()
-    #             except httpx.HTTPStatusError as err:
-    #                 status_code = err.response.status_code
-    #                 _LOGGER.debug(
-    #                     f"Received status_code {status_code} from Gateway"
-    #                 )
-    #                 if status_code == 401 and handle_401:
-    #                     _LOGGER.debug(f"Request header: {self._auth_header}")
-    #                     _LOGGER.debug("Trying to update token")
-    #                     try:
-    #                         await self._enphase_token.refresh()
-    #                     except Exception as exc:
-    #                         _LOGGER.debug(
-    #                             f"Error while trying to update token: {exc}"
-    #                         )
-    #                         _LOGGER.debug("Raising initial 401 Error:")
-    #                         raise err
-    #                     else:
-    #                         return await self._async_get(
-    #                             url, handle_401=False, **kwargs
-    #                         )
-    #                 elif status_code == 503:
-    #                     raise RuntimeError(
-    #                         "Gateway temporary unavailable (503)."
-    #                     )
-    #                 else:
-    #                     raise err
-    #             except httpx.TransportError:
-    #                 if attempt >= 3:
-    #                     _LOGGER.debug(
-    #                         f"Transport Error while trying HTTP GET: {url}"
-    #                     )
-    #                     raise
-    #                 else:
-    #                     await asyncio.sleep(attempt * 0.15)
-    #                     continue
-    #             else:
-    #                 _LOGGER.debug(f"Fetched from {url}: {r}: {r.text}")
-    #                 return r    
-    
-    # async def _async_post(self, url, retries=2, raise_for_status=True, **kwargs):
-    #     """Post using async.
-        
-    #     Parameters
-    #     ----------
-    #     url : str
-    #         HTTP POST target url.
-    #     retries : int, optional
-    #         Number of retries to perform after the initial post request fails. 
-    #         The default is 2.
-    #     raise_for_status : bool, optional
-    #         If True raise an exception for non 2xx responses.
-    #         The default is True.
-    #     **kwargs : dict, optional
-    #         Extra arguments to httpx client.post().
-
-    #     Returns
-    #     -------
-    #     r : http response
-    #         HTTP POST response object.
-
-    #     """
-    #     async with self.async_client as client:
-    #         for attempt in range(1, retries+1):
-    #             _LOGGER.debug(f"HTTP POST Attempt: #{attempt}: {url}")
-    #             try:
-    #                 r = await client.post(url, **kwargs)
-    #                 _LOGGER.debug(f"HTTP POST {url}: {r}: {r.text}")
-    #                 _LOGGER.debug(f"HTTP POST Cookie: {r.cookies}")
-    #                 if raise_for_status:
-    #                     r.raise_for_status()
-    #             except httpx.HTTPStatusError as err:
-    #                 status_code = err.response.status_code
-    #                 _LOGGER.debug(
-    #                     f"Received status_code {status_code} from Envoy."
-    #                 )
-    #                 if status_code == 503:
-    #                     raise RuntimeError(
-    #                         "Envoy Service temporary unavailable (503)"
-    #                     )
-    #                 else:
-    #                     raise
-    #             except httpx.TransportError:
-    #                 if attempt >= retries + 1:
-    #                     raise
-    #                 else:
-    #                     await asyncio.sleep(attempt * 0.15)
-    #             else:
-    #                 return r
-
 
     async def _setup_gateway(self):
         """Try to detect and setup the Enphase Gateway.
@@ -478,16 +364,33 @@ class GatewayReader:
         if self.password == "" and not self.use_token_auth:
             self.password = await self._get_password_from_serial_num()
         
-        try:
+        for gateway_type in GATEWAY_DETECTION_ENDPOINTS.keys():    
             self.endpoint_results = {}
-            await self._update(detection=True, gateway_type="ENVOY_MODEL_S")
-        except httpx.HTTPStatusError as err:
-            status_code = err.response.status_code
-            if status_code == 401 and self.use_token_auth:
-                raise err
-        except httpx.HTTPError:
-            pass
+            try:
+                await self._update(detection=True, gateway_type=gateway_type) 
+            except httpx.HTTPStatusError as err:
+                status_code = err.response.status_code
+                if status_code == 401 and self.use_token_auth:
+                    raise err
+            except httpx.HTTPError:
+                pass
+            
+            func_name = f"_setup_{gateway_type.lower()}"
+            if setup_function := getattr(self, func_name, None):
+                if await setup_function():
+                    self.endpoint_results = {}
+                    return
+                else:
+                    continue
+            else:
+                raise RuntimeError("Missing setup function: {gateway_type}")
         
+        raise RuntimeError(f"""
+            Could not connect or determine Envoy model. 
+            Check that the device is up at 'http://{self.host}'."""
+        )
+    
+    async def _setup_envoy_model_s(self):
         if production_json := self.endpoint_results.get("production_json"):
             status_code = production_json.status_code
             if status_code == 200:
@@ -496,52 +399,32 @@ class GatewayReader:
                         production_json.json()
                     )
                     self.gateway_type = "ENVOY_MODEL_S_METERED"
-                    self.endpoint_results = {}
-                    return
                 else:
                     self.gateway_type = "ENVOY_MODEL_S_STANDARD"
-                    self.endpoint_results = {}
-                    return
-            elif status_code == 401:
-                raise RuntimeError(
-                    """Could not connect to Envoy model. 
-                    Appears your Envoy is running firmware that requires 
-                    secure communcation.
-                    Please enter the needed Enlighten credentials during setup.
-                    """
-                )
-
-        try:
-            self.endpoint_results = {}
-            await self._update(detection=True, gateway_type="ENVOY_MODEL_C")
-        except httpx.HTTPError:
-            pass
         
+        if self.gateway_type:
+            if inventory := self.endpoint_results.get("ensemble_inventory"):
+                inventory = inventory.json()
+                if len(inventory) > 0 and "devices" in inventory[0].keys():
+                    self.fetch_ensemble = True     
+            return True
+        
+        return False
+    
+    async def _setup_envoy_model_c(self):
         if production_v1 := self.endpoint_results.get("production_v1"):
             if production_v1.status_code == 200:
                 self.gateway_type = "ENVOY_MODEL_C"
-                self.endpoint_results = {}
-                return
-
-        try:
-            self.endpoint_results = {}
-            await self._update(detection=True, gateway_type="ENVOY_MODEL_LEGACY")
-        except httpx.HTTPError:
-            pass
-
+                return True
+        return False
+    
+    async def _setup_envoy_model_legacy(self):
         if production := self.endpoint_results.get("production_legacy"):
             if production.status_code == 200:
                 self.gateway_type = "ENVOY_MODEL_LEGACY"
-                self.endpoint_results = {}
-                return
-        
-        raise RuntimeError(
-            "Could not connect or determine Envoy model. "
-            + "Check that the device is up at 'http://"
-            + self.host
-            + "'."
-        )
-
+                return True
+        return False
+    
     async def _get_password_from_serial_num(self):
         """Generate gateway's password from serial number.
         
@@ -561,19 +444,20 @@ class GatewayReader:
             return None
 
     async def get_serial_number(self):
-        """Get the Envoy serial number."""
-        response = await self._async_get(
-            f"http{self._protocol}://{self.host}/info.xml",
-            follow_redirects=True,
-        )
-        if not response.text:
+        """Try to fetch the serial number from /info.xml."""
+        url = ENDPOINT_URL_INFO_XML.format(self._protocol, self.host)
+        try:
+            response = await self._async_get(url, follow_redirects=True).text
+        except:
             return None
-        if "<sn>" in response.text:
-            return response.text.split("<sn>")[1].split("</sn>")[0]
-        match = SERIAL_REGEX.search(response.text)
-        if match:
-            return match.group(1)
-
+        else:
+            if "<sn>" in response:
+                return response.split("<sn>")[1].split("</sn>")[0]  
+            elif match := SERIAL_REGEX.search(response):
+                return match.group(1)
+        
+        return None
+        
     def create_connect_errormessage(self):
         """Create error message if unable to connect to Envoy."""
         return (
@@ -899,29 +783,62 @@ class GatewayReader:
         return response_dict
 
     async def battery_storage(self):
-        """Return battery data from Envoys that support and have batteries installed."""
+        """Return battery storages for supported gateways.
+        
+        For Envoys that support batteries but do not have an Enphase AC battery
+        installed the 'percentFull' key will not be availiable in the
+        production_json result.
+        
+        For Envoys that have an Encharge storage installed the ensemble 
+        endpoints can be used to fetch battery data.
+        
+
+        Returns
+        -------
+        dict
+            Battery dict.
+
+        """
         if self.gateway_type in {"ENVOY_MODEL_C", "ENVOY_MODEL_LEGACY"}:
             return self.MESSAGES["battery_not_available"]
 
         try:
-            raw_json = self.endpoint_results["production_json"].json()
+            production_json = self.endpoint_results["production_json"].json()
         except JSONDecodeError:
             return None
-
-        """For Envoys that support batteries but do not have them installed the"""
-        """percentFull will not be available in the JSON results. The API will"""
-        """only return battery data if batteries are installed."""
-        if "percentFull" not in raw_json["storage"][0].keys():
-            # "ENCHARGE" batteries are part of the "ENSEMBLE" api instead
-            # Check to see if it's there. Enphase has too much fun with these names
-            if self.endpoint_results.get("ensemble_json") is not None:
-                ensemble_json = self.endpoint_results["ensemble_json"].json()
-                if len(ensemble_json) > 0 and "devices" in ensemble_json[0].keys():
-                    return ensemble_json[0]["devices"]
-            return self.MESSAGES["battery_not_available"]
         
-        return raw_json["storage"][0]
-
+        if "percentFull" in production_json["storage"][0].keys():
+            storage_json = production_json["storage"][0]
+            return {"acb": storage_json}
+            
+        elif _inventory := self.endpoint_results.get("ensemble_inventory"):
+            ensemble_inventory = _inventory.json()
+            storages = {}
+            for entry in ensemble_inventory:
+                storage_type = entry.get("type")
+                devices = entry.get("devices")
+                storages.update({storage_type: devices})
+                if devices and storage_type == "ENCHARGE":
+                    storages.update(
+                        {storage_type: {
+                            item["serial_num"]: item for item in devices
+                            }
+                        }
+                    )
+            if storages:
+                return storages
+              
+        return self.MESSAGES["battery_not_available"]  
+    
+    async def ensemble_power(self):
+        """Return Encharge battery power values."""
+        if ensemble_power := self.endpoint_results.get("ensemble_power"):
+            ensemble_power = ensemble_power.json()
+            return {
+                item["serial_num"]: item for item in ensemble_power["devices:"]
+            }
+        return None
+        
     async def grid_status(self):
         """Return grid status reported by Envoy."""
         if self.endpoint_results.get("home_json") is not None:
@@ -930,7 +847,6 @@ class GatewayReader:
                 return home_json["enpower"]["grid_status"]
         
         return self.MESSAGES["grid_status_not_available"]
-
 
     def run_in_console(self):
         """If running this module directly, print all the values in the console."""
@@ -979,98 +895,20 @@ class GatewayReader:
 
 
 if __name__ == "__main__":
-    SECURE = ""
-
-    parser = argparse.ArgumentParser(
-        description="Retrieve energy information from the Enphase Envoy device."
+    
+    TESTREADER = GatewayReader(
+        "192.168.178.",
+        username="envoy",
+        password="",
+        gateway_serial_num=None,
+        use_token_auth=False,
+        token_raw=None,
+        use_token_cache=False,
+        token_cache_filepath=None,
+        single_inverter_entities=False,
+        inverters=False,
+        async_client=None,
     )
-    parser.add_argument(
-        "-u", "--user", dest="enlighten_user", help="Enlighten Username"
-    )
-    parser.add_argument(
-        "-p", "--pass", dest="enlighten_pass", help="Enlighten Password"
-    )
-    parser.add_argument(
-        "-c",
-        "--comissioned",
-        dest="commissioned",
-        help="Commissioned Envoy (True/False)",
-    )
-    parser.add_argument(
-        "-o",
-        "--ownertoken",
-        dest="ownertoken",
-        help="use the 6 month owner token  from enlighten instead of the 1hr entrez token",
-        action='store_true'
-    )
-    parser.add_argument(
-        "-i",
-        "--siteid",
-        dest="enlighten_site_id",
-        help="Enlighten Site ID. Only used when Commissioned=True.",
-    )
-    parser.add_argument(
-        "-s",
-        "--serialnum",
-        dest="enlighten_serial_num",
-        help="Enlighten Envoy Serial Number. Only used when Commissioned=True.",
-    )
-    args = parser.parse_args()
-
-    if (
-        args.enlighten_user is not None
-        and args.enlighten_pass is not None
-        and args.commissioned is not None
-    ):
-        SECURE = "s"
-
-    HOST = input(
-        "Enter the Envoy IP address or host name, "
-        + "or press enter to use 'envoy' as default: "
-    )
-
-    USERNAME = input(
-        "Enter the Username for Inverter data authentication, "
-        + "or press enter to use 'envoy' as default: "
-    )
-
-    PASSWORD = input(
-        "Enter the Password for Inverter data authentication, "
-        + "or press enter to use the default password: "
-    )
-
-    if HOST == "":
-        HOST = "envoy"
-
-    if USERNAME == "":
-        USERNAME = "envoy"
-
-    if PASSWORD == "":
-        TESTREADER = EnvoyReader(
-            HOST,
-            USERNAME,
-            inverters=True,
-            enlighten_user=args.enlighten_user,
-            enlighten_pass=args.enlighten_pass,
-            commissioned=args.commissioned,
-            enlighten_site_id=args.enlighten_site_id,
-            enlighten_serial_num=args.enlighten_serial_num,
-            https_flag=SECURE,
-            use_enlighten_owner_token=args.ownertoken
-        )
-    else:
-        TESTREADER = EnvoyReader(
-            HOST,
-            USERNAME,
-            PASSWORD,
-            inverters=True,
-            enlighten_user=args.enlighten_user,
-            enlighten_pass=args.enlighten_pass,
-            commissioned=args.commissioned,
-            enlighten_site_id=args.enlighten_site_id,
-            enlighten_serial_num=args.enlighten_serial_num,
-            https_flag=SECURE,
-            use_enlighten_owner_token=args.ownertoken
-        )
-
+        
     TESTREADER.run_in_console()
+
