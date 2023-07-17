@@ -19,7 +19,7 @@ from .gateway_reader import GatewayReader
 from .const import (
     DOMAIN, CONF_SERIAL_NUM, CONF_USE_TOKEN_AUTH, CONF_TOKEN_CACHE_FILEPATH,
     CONF_TOKEN_RAW, CONF_USE_TOKEN_CACHE, CONF_SINGLE_INVERTER_ENTITIES,
-    CONF_USE_LEGACY_NAME
+    CONF_USE_LEGACY_NAME, CONF_SINGLE_STORAGE_ENTITIES
 )
 
 
@@ -27,6 +27,15 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_TITLE = "Enphase Gateway"
 LEGACY_TITLE = "Envoy"
+
+
+# @staticmethod
+# @callback
+# def async_get_options_flow(
+#         config_entry: config_entries.ConfigEntry,
+# ) -> config_entries.OptionsFlow:
+#     """Create the options flow."""
+#     return GatewayOptionsFlow(config_entry)
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> GatewayReader:
@@ -99,10 +108,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 IP detected: {discovery_info.host} {current_entry.unique_id}
                 """
             )
-            return self.async_abort(reason="pref_disable_new_entities")    
+            return self.async_abort(reason="pref_disable_new_entities")  
         
         self.ip_address = discovery_info.host
-        self._abort_if_unique_id_configured({CONF_HOST: self.ip_address})     
+        self._abort_if_unique_id_configured({CONF_HOST: self.ip_address}) 
         
         # set unique_id if not set for an entry with the same IP adress
         for entry in self._async_current_entries(include_ignore=False):
@@ -236,13 +245,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     
     def _generate_name(self, use_legacy_name=False):
         """Return the name of the entity."""
-        if use_legacy_name:
-            _name = LEGACY_TITLE
-        else:
-            _name = DEFAULT_TITLE
+        name = LEGACY_TITLE if use_legacy_name else DEFAULT_TITLE
         if self.unique_id:
-            return f"{_name} {self.unique_id}"
-        return _name
+            return f"{name} {self.unique_id}"
+        return name
     
     async def _async_set_unique_id_from_gateway(
             self, 
@@ -265,7 +271,48 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_SINGLE_INVERTER_ENTITIES: True,
         }
         return placeholders
+
         
+class GatewayOptionsFlow(config_entries.OptionsFlow):
+    """Handle a options flow for Enphase Gateway."""
+    
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+    
+    async def async_step_init(
+            self, 
+            user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+        
+        return self.async_show_form(
+            step_id="init", 
+            data_schema=self._generate_data_shema()
+        )
+
+    @callback
+    def _generate_data_shema(self):
+        """Generate schema."""
+        options = self.config_entry.options
+        schema = {
+            vol.Optional(
+                CONF_USE_TOKEN_CACHE, 
+                default=options.get(CONF_USE_TOKEN_CACHE, True)
+            ): bool,
+            vol.Optional(
+                CONF_SINGLE_INVERTER_ENTITIES, 
+                default=options.get(CONF_SINGLE_INVERTER_ENTITIES, True)
+            ): bool,
+            vol.Optional(
+                CONF_SINGLE_STORAGE_ENTITIES, 
+                default=options.get(CONF_SINGLE_STORAGE_ENTITIES, True)
+            ): bool,
+            
+        }
+        return vol.Schema(schema)
+
 
 class CannotConnect(HomeAssistantError):
     """Error to indicate we cannot connect."""
