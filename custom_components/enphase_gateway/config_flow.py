@@ -13,12 +13,15 @@ from homeassistant.components import zeroconf
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.exceptions import HomeAssistantError
 
 from .gateway_reader import GatewayReader
+from .exceptions import (
+    CannotConnect, InvalidAuth, EnlightenInvalidAuth, InvalidToken,
+    EnlightenUnauthorized, InvalidEnphaseToken
+)
 from .const import (
     DOMAIN, CONF_SERIAL_NUM, CONF_USE_TOKEN_AUTH, CONF_TOKEN_CACHE_FILEPATH,
-    CONF_TOKEN_RAW, CONF_USE_TOKEN_CACHE, CONF_SINGLE_INVERTER_ENTITIES,
+    CONF_TOKEN_RAW, CONF_USE_TOKEN_CACHE, CONF_GET_INVERTERS,
     CONF_USE_LEGACY_NAME, CONF_SINGLE_STORAGE_ENTITIES
 )
 
@@ -29,16 +32,19 @@ DEFAULT_TITLE = "Enphase Gateway"
 LEGACY_TITLE = "Envoy"
 
 
-# @staticmethod
-# @callback
-# def async_get_options_flow(
-#         config_entry: config_entries.ConfigEntry,
-# ) -> config_entries.OptionsFlow:
-#     """Create the options flow."""
-#     return GatewayOptionsFlow(config_entry)
+@staticmethod
+@callback
+def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+) -> config_entries.OptionsFlow:
+    """Create the options flow."""
+    return GatewayOptionsFlow(config_entry)
 
 
-async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> GatewayReader:
+async def validate_input(
+        hass: HomeAssistant, 
+        data: dict[str, Any],
+        options: dict[str, Any]) -> GatewayReader:
     """Validate the user input allows us to connect."""
     gateway_reader = GatewayReader(
         data[CONF_HOST],
@@ -46,18 +52,22 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> GatewayRe
         password=data.get(CONF_PASSWORD, ""),
         gateway_serial_num=data.get(CONF_SERIAL_NUM, ""),
         use_token_auth=data.get(CONF_USE_TOKEN_AUTH, False),
+        use_token_cache=options.get(CONF_USE_TOKEN_CACHE, True),
+        get_inverters=options.get(CONF_GET_INVERTERS, False),
         # async_client=get_async_client(hass),
-        inverters=False,
         
         # preperations for upcoming features
         # token_raw=data.get(CONF_TOKEN_RAW, ""),
         # use_token_cache=data.get(CONF_USE_TOKEN_CACHE, False),
         # token_cache_filepath=data.get(CONF_TOKEN_CACHE_FILEPATH, ""),
-        # single_inverter_entities=data.get(CONF_SINGLE_INVERTER_ENTITIES, False),
     )
     
     try:
         await gateway_reader.getData()
+    except InvalidEnphaseToken as err:
+        raise InvalidToken from err
+    except EnlightenUnauthorized as err:
+        raise EnlightenInvalidAuth from err
     except httpx.HTTPStatusError as err:
         raise InvalidAuth from err
     except (RuntimeError, httpx.HTTPError) as err:
@@ -66,7 +76,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> GatewayRe
     return gateway_reader
 
 
-class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Enphase Gateway."""
 
     VERSION = 1
@@ -150,28 +160,42 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             use_legacy_name = user_input.pop(CONF_USE_LEGACY_NAME, False)
+            options = {
+                CONF_GET_INVERTERS: user_input.pop(CONF_GET_INVERTERS),
+                CONF_USE_TOKEN_CACHE: user_input.pop(CONF_USE_TOKEN_CACHE),
+            }
             if (
                 not self._reauth_entry
                 and user_input[CONF_HOST] in self._get_current_hosts()
             ):
                 return self.async_abort(reason="already_configured")
+           
             try:
-                gateway_reader = await validate_input(self.hass, user_input)
+                gateway_reader = await validate_input(
+                    self.hass, 
+                    user_input,
+                    options
+                )
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
+            except EnlightenInvalidAuth:
+                errors["base"] = "enlighten_invalid_auth"
+            except InvalidToken:
+                errors["base"] = "invalid_token"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
-                data = user_input.copy() | self._get_placeholders()
+                data = user_input.copy() #| self._get_placeholders()
                 data[CONF_NAME] = self._generate_name(use_legacy_name)
                 
                 if self._reauth_entry:
                     self.hass.config_entries.async_update_entry(
                         self._reauth_entry,
                         data=data,
+                        options=options
                     )
                     return self.async_abort(reason="reauth_successful")
                 
@@ -181,7 +205,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         data[CONF_NAME] = self._generate_name(use_legacy_name)
                 
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(title=data[CONF_NAME], data=data)
+                return self.async_create_entry(
+                    title=data[CONF_NAME], 
+                    data=data,
+                    options=options
+                )
                 
         if self.unique_id:
             self.context["title_placeholders"] = {
@@ -232,6 +260,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         schema[vol.Optional(CONF_SERIAL_NUM, default=self.unique_id or "")] = str
         schema[vol.Optional(CONF_USE_TOKEN_AUTH, default=False)] = bool
         schema[vol.Optional(CONF_USE_LEGACY_NAME, default=False)] = bool
+        schema[vol.Optional(CONF_GET_INVERTERS, default=False)] = bool
         return vol.Schema(schema)
 
     @callback
@@ -262,15 +291,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return True
         return False
     
-    def _get_placeholders(self):
-        """Return placeholders for config_entry."""
-        placeholders = {
-            CONF_TOKEN_RAW: "",
-            CONF_USE_TOKEN_CACHE: False,
-            CONF_TOKEN_CACHE_FILEPATH: "",
-            CONF_SINGLE_INVERTER_ENTITIES: True,
-        }
-        return placeholders
+    # def _get_placeholders(self):
+    #     """Return placeholders for config_entry."""
+    #     placeholders = {
+    #         CONF_TOKEN_RAW: "",
+    #         CONF_USE_TOKEN_CACHE: False,
+    #         CONF_TOKEN_CACHE_FILEPATH: "",
+    #         CONF_GET_INVERTERS: True,
+    #     }
+    #     return placeholders
 
         
 class GatewayOptionsFlow(config_entries.OptionsFlow):
@@ -288,7 +317,7 @@ class GatewayOptionsFlow(config_entries.OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
         
         return self.async_show_form(
-            step_id="init", 
+            step_id="init",
             data_schema=self._generate_data_shema()
         )
 
@@ -298,25 +327,13 @@ class GatewayOptionsFlow(config_entries.OptionsFlow):
         options = self.config_entry.options
         schema = {
             vol.Optional(
+                CONF_GET_INVERTERS, 
+                default=options.get(CONF_GET_INVERTERS, False)
+            ): bool,
+            vol.Optional(
                 CONF_USE_TOKEN_CACHE, 
                 default=options.get(CONF_USE_TOKEN_CACHE, True)
             ): bool,
-            vol.Optional(
-                CONF_SINGLE_INVERTER_ENTITIES, 
-                default=options.get(CONF_SINGLE_INVERTER_ENTITIES, True)
-            ): bool,
-            vol.Optional(
-                CONF_SINGLE_STORAGE_ENTITIES, 
-                default=options.get(CONF_SINGLE_STORAGE_ENTITIES, True)
-            ): bool,
-            
         }
         return vol.Schema(schema)
 
-
-class CannotConnect(HomeAssistantError):
-    """Error to indicate we cannot connect."""
-
-
-class InvalidAuth(HomeAssistantError):
-    """Error to indicate there is invalid auth."""

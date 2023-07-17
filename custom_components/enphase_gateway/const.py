@@ -26,7 +26,7 @@ CONF_USE_TOKEN_AUTH = "use_token_auth"
 CONF_TOKEN_RAW = "token_raw"
 CONF_USE_TOKEN_CACHE = "use_token_cache"
 CONF_TOKEN_CACHE_FILEPATH = "token_cache_filepath"
-CONF_SINGLE_INVERTER_ENTITIES = "single_inverter_entities"
+CONF_GET_INVERTERS = "get_inverters"
 CONF_SINGLE_STORAGE_ENTITIES = "single_storage_entities"
 CONF_USE_LEGACY_NAME = "use_lagacy_name"
 

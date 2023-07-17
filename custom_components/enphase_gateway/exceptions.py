@@ -1,14 +1,35 @@
 """Module for custom exceptions."""
 
+import httpx
 
-class TokenError(ValueError):
-    """Error for user provided tokens.
+from homeassistant.exceptions import HomeAssistantError
+
+
+class CannotConnect(HomeAssistantError):
+    """Error to indicate we cannot connect."""
+
+    pass
+
+
+class InvalidAuth(HomeAssistantError):
+    """Error to indicate there is invalid auth."""
     
-    Raised when user provided tokens are not valid or could not be validated
-    because of other errors.
+    pass
+
+
+class EnlightenInvalidAuth(HomeAssistantError):
+    """Error to indicate invalid auth to Enlighten.
     
-    Can be used in config_flow to handle errors by user provided tokens.
+    Raises when status 401 is raised while trying to login to enlighten.
+    """
     
+    pass
+    
+
+class InvalidToken(HomeAssistantError):
+    """Error to indicate an invalid token.
+    
+    Raises if the token provided by the user is invalid.
     """
     
     pass
@@ -25,7 +46,7 @@ class TokenConfigurationError(ValueError):
     pass
 
 
-class InvalidEnphaseTokenError(ValueError):
+class InvalidEnphaseToken(ValueError):
     """Error for invalid Enphase tokens.
     
     Is raised if token validation using /auth/check_jwt returns
@@ -34,3 +55,14 @@ class InvalidEnphaseTokenError(ValueError):
     """
     
     pass
+
+
+class EnlightenUnauthorized(httpx.HTTPStatusError):
+    """Error for invalid Enlighten credentials.
+    
+    Is raised if status 401 is returned while trying to login to enlighten.
+    
+    """
+    
+    pass
+

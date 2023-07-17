@@ -11,7 +11,7 @@ from jwt.exceptions import InvalidTokenError as jwt_InvalidTokenError
 from bs4 import BeautifulSoup
 
 from .http import async_get, async_post
-from .exceptions import TokenConfigurationError, InvalidEnphaseTokenError
+from .exceptions import TokenConfigurationError, InvalidEnphaseToken, EnlightenUnauthorized
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -263,7 +263,7 @@ class EnphaseToken:
                 return False
             except jwt.exceptions.InvalidTokenError:
                 return False
-            except InvalidEnphaseTokenError:
+            except InvalidEnphaseToken:
                 return False
             else:
                 return True
@@ -312,7 +312,7 @@ class EnphaseToken:
                 _LOGGER.debug(f"Token successfully initialized: {self._token}")
             else:
                 _LOGGER.debug("Token is not valid")
-                raise InvalidEnphaseTokenError(f"Token invalid: {token_raw}")
+                raise InvalidEnphaseToken(f"Token invalid: {token_raw}")
     
     async def _refresh_token_cookies(self, token_raw):
         """Call '/auth/check_jwt' to check if token is valid.
@@ -402,8 +402,14 @@ class EnphaseToken:
             'user[email]': self.enlighten_username, 
             'user[password]': self.enlighten_password
         }
-        response = await self._async_post(ENLIGHTEN_LOGIN_URL, data=payload)
-        response_data = json.loads(response.text)
+        try:
+            resp = await self._async_post(ENLIGHTEN_LOGIN_URL, data=payload)
+        except httpx.HTTPStatusError as err:
+            status_code = err.response.status_code
+            if status_code == 401:
+                raise EnlightenUnauthorized("Enlighten unauthorized") from err
+            raise err
+        response_data = json.loads(resp.text)
         payload = {
             'session_id': response_data['session_id'],
             'serial_num': self.gateway_serial_num,

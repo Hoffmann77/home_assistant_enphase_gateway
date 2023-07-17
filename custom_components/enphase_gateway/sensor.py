@@ -200,10 +200,14 @@ class CoordinatedGatewayEntity(SensorEntity, CoordinatorEntity):
         """Return the device_info of the device."""
         if not self._device_serial_number:
             return None
+        
+        if info := self.coordinator.data.get("gateway_info"):
+            gateway_type = info.get("gateway_type", "Gateway")
+        
         return DeviceInfo(
             identifiers={(DOMAIN, str(self._device_serial_number))},
             manufacturer="Enphase",
-            model="Envoy",
+            model=gateway_type or "Gateway",
             name=self._device_name,
         )
     

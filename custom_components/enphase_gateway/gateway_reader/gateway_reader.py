@@ -122,8 +122,7 @@ class GatewayReader:
             token_raw=None,
             use_token_cache=False,
             token_cache_filepath=None,
-            single_inverter_entities=False,
-            inverters=False,
+            get_inverters=False,
             async_client=None,
         ):
         """Init the EnvoyReader."""
@@ -139,7 +138,7 @@ class GatewayReader:
         self.meters_enabled = False
         self.device_info = {}
         self.fetch_ensemble = False
-        self.get_inverters = inverters
+        self.get_inverters = get_inverters
         self._async_client = async_client
         self._protocol = "https" if use_token_auth else "http"
         if self.use_token_auth:
@@ -476,7 +475,15 @@ class GatewayReader:
             + "Maybe your model of Envoy doesn't "
             + "support the requested metric."
         )
-
+    
+    async def gateway_info(self):
+        """Return information about the devices."""
+        strings = self.gateway_type.lower().split("_")
+        gateway_type = " ".join([string[0].upper() for string in strings])
+        return {
+            "gateway_type": gateway_type or None
+        }
+        
     async def production(self):
         """Return the current power production value.
         

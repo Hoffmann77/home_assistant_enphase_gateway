@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .gateway_reader import GatewayReader
 from .const import (
     COORDINATOR, DOMAIN, NAME, PLATFORMS, SENSORS, CONF_USE_TOKEN_AUTH, 
-    CONF_SERIAL_NUM, ENCHARGE_SENSORS
+    CONF_SERIAL_NUM, ENCHARGE_SENSORS, CONF_GET_INVERTERS, CONF_USE_TOKEN_CACHE
 )
 
 
@@ -27,6 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Enphase Gateway from a config entry."""
     config = entry.data
+    options = entry.options
     name = config[CONF_NAME]
 
     gateway_reader = GatewayReader(
@@ -35,8 +36,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         password=config[CONF_PASSWORD],
         gateway_serial_num=config[CONF_SERIAL_NUM],
         use_token_auth=config.get(CONF_USE_TOKEN_AUTH, False),
+        use_token_cache=options.get(CONF_USE_TOKEN_CACHE, True),
+        get_inverters=options.get(CONF_GET_INVERTERS, True),
         # async_client=get_async_client(hass),
-        inverters=True,
     )
     
     async def async_update_data():
@@ -63,7 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         #     data[storage] = storages[storage]
                 
                 elif description.key in {
-                        "current_battery_capacity", 
+                        "current_battery_capacity",
                         "total_battery_percentage"
                 }:
                     continue
@@ -85,6 +87,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     data["encharge"] = storages
 
             data["grid_status"] = await gateway_reader.grid_status()
+            data["gateway_info"] = await gateway_reader.gateway_info()
 
             _LOGGER.debug("Retrieved data from API: %s", data)
 

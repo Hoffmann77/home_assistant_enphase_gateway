@@ -7,6 +7,8 @@
     "error": {
       "cannot_connect": "Failed to connect",
       "invalid_auth": "Invalid authentication",
+      "invalid_token": "The Token you provided is invalid",
+      "enlighten_invalid_auth": "Enlighten credentials invalid",
       "unknown": "Unexpected error"
     },
     "flow_title": "{serial_num} ({host})",
@@ -17,9 +19,24 @@
           "password": "Password",
           "username": "Username",
           "serial_num": "Gateway's serial number",
-          "use_token_auth": "Use Token based authentication (Required for Firmware D7.x)"
+          "use_token_auth": "Use Token based authentication (Required for Firmware D7.x)",
+          "use_lagacy_name": "Use old naming schema (Recommended if you used another enphase integration before and want to keep your historic data)",
+          "get_inverters": "Enable inverter entities (Show production values for every inverter)"
         },
         "description": "- For Firmware D7.x please enter your login credentials for the Enlighten website as username and password and check `Use Token based authentication`.\n - For older models, enter username `envoy` without a password or enter username `installer` without a password for even older models.\n - For all other models, enter a valid username and password."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "user": {
+        "title": "Gateway options",
+        "data": {
+          "get_inverters": "Enable inverter entities (Show production values for every inverter)"
+        },
+        "data_description": {
+          "get_inverters": "Show production values for every inverter"
+        }
       }
     }
   }
