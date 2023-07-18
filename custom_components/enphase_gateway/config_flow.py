@@ -20,9 +20,9 @@ from .exceptions import (
     EnlightenUnauthorized, InvalidEnphaseToken
 )
 from .const import (
-    DOMAIN, CONF_SERIAL_NUM, CONF_USE_TOKEN_AUTH, CONF_TOKEN_CACHE_FILEPATH,
-    CONF_TOKEN_RAW, CONF_USE_TOKEN_CACHE, CONF_GET_INVERTERS,
-    CONF_USE_LEGACY_NAME, CONF_SINGLE_STORAGE_ENTITIES
+    DOMAIN, CONF_SERIAL_NUM, CONF_USE_TOKEN_AUTH, CONF_TOKEN_RAW, 
+    CONF_CACHE_TOKEN, CONF_GET_INVERTERS, CONF_USE_LEGACY_NAME, 
+    CONF_SINGLE_STORAGE_ENTITIES
 )
 
 
@@ -52,7 +52,7 @@ async def validate_input(
         password=data.get(CONF_PASSWORD, ""),
         gateway_serial_num=data.get(CONF_SERIAL_NUM, ""),
         use_token_auth=data.get(CONF_USE_TOKEN_AUTH, False),
-        use_token_cache=options.get(CONF_USE_TOKEN_CACHE, True),
+        cache_token=options.get(CONF_CACHE_TOKEN, True),
         get_inverters=options.get(CONF_GET_INVERTERS, False),
         # async_client=get_async_client(hass),
         
@@ -162,7 +162,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             use_legacy_name = user_input.pop(CONF_USE_LEGACY_NAME, False)
             options = {
                 CONF_GET_INVERTERS: user_input.pop(CONF_GET_INVERTERS),
-                CONF_USE_TOKEN_CACHE: user_input.pop(CONF_USE_TOKEN_CACHE),
+                CONF_CACHE_TOKEN: user_input.pop(CONF_CACHE_TOKEN),
             }
             if (
                 not self._reauth_entry
@@ -331,8 +331,8 @@ class GatewayOptionsFlow(config_entries.OptionsFlow):
                 default=options.get(CONF_GET_INVERTERS, False)
             ): bool,
             vol.Optional(
-                CONF_USE_TOKEN_CACHE, 
-                default=options.get(CONF_USE_TOKEN_CACHE, True)
+                CONF_CACHE_TOKEN, 
+                default=options.get(CONF_CACHE_TOKEN, True)
             ): bool,
         }
         return vol.Schema(schema)

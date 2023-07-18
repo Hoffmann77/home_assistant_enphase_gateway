@@ -7,7 +7,6 @@ from datetime import datetime, timezone, timedelta
 
 import httpx
 import jwt
-from jwt.exceptions import InvalidTokenError as jwt_InvalidTokenError
 from bs4 import BeautifulSoup
 
 from .http import async_get, async_post
@@ -34,8 +33,10 @@ class EnphaseToken:
             enlighten_password,
             gateway_serial_num,
             token_raw=None,
-            use_token_cache=False,
-            token_cache_filepath=None,
+            token_store=None,
+            cache_token=False,
+            expose_token=False,
+            exposure_path=None,
         ):
         """Initialize EnphaseToken.
         
@@ -50,9 +51,15 @@ class EnphaseToken:
         gateway_serial_num : TYPE
             Gateway's serial number.
         token_raw : str, optional
-            EnphaseToken. The default is None.
-        cache_filepath : str, optional
-            Filepath for the token cache. The default is None.
+            Raw Enphase Token. The default is None.
+        token_store : Store, optional
+            Home Assistant Store. The default is None.
+        cache_token : bool, optional
+            Cache token in Store if True. The default is False.
+        expose_token : bool, optional
+            Expose token to exposure_path if True. The default is False.
+        exposure_path : str, optional
+            Exposure filepath. The default is None.
 
         Raises
         ------
@@ -69,8 +76,11 @@ class EnphaseToken:
         self.enlighten_password = enlighten_password
         self.gateway_serial_num = gateway_serial_num
         self.expiration_date = None
-        self._use_token_cache = use_token_cache if not token_raw else False
-        self._renewal_buffer = 600
+        self._token_store = token_store
+        self._token_store_data = None
+        self._cache_token = cache_token if not token_raw else False
+        self._expose_token = expose_token
+        self._exposure_path = None
         self._token = None
         self._type = None
         self._cookies = None
@@ -86,10 +96,13 @@ class EnphaseToken:
             )
             raise TokenConfigurationError(msg)
         
-        if token_cache_filepath:
-            self._token_cache_filepath = Path(token_cache_filepath).resolve()
+        if token_store:
+            self._token_store_data = await token_store.async_load()
+            
+        if exposure_path:
+            self._exposure_path = Path(exposure_path).resolve()
         else:
-            self._token_cache_filepath = BASE_DIR.joinpath("token_cache.json")
+            self._exposure_path = BASE_DIR.joinpath("exposed_token.json")
 
         if token_raw:
             self._init_from_token_raw(token_raw)
@@ -104,7 +117,7 @@ class EnphaseToken:
             Enphase token as string.
 
         """
-        return self._token   
+        return self._token 
 
     @property
     def cookies(self):
@@ -136,7 +149,7 @@ class EnphaseToken:
             return False
     
     @property
-    def is_expired(self):
+    def is_expired(self, buffer=600):
         """Return the expiration status of the Enphase token.
         
         Returns
@@ -145,7 +158,7 @@ class EnphaseToken:
             True if token is expired. False otherwise.
 
         """
-        delta = timedelta(seconds=self._renewal_buffer) 
+        delta = timedelta(seconds=buffer) 
         exp_time = self.expiration_date - delta
         if datetime.now(tz=timezone.utc) <= exp_time:
             _LOGGER.debug(f"Token expires at: {exp_time} UTC")
@@ -167,15 +180,15 @@ class EnphaseToken:
         _LOGGER.debug(f"Preparing token: {self._token}")
         if not self._token:
             _LOGGER.debug("Found empty token - Populating token")
-            if self._use_token_cache:
+            if self._cache_token and self._token_store_data:
                 _LOGGER.debug("Populating from token cache")   
-                if not await self._init_from_token_cache():
+                if not await self._init_from_token_store():
                     _LOGGER.debug("Fetching new token from Enlighten")
                     await self.refresh()
             else:
                 _LOGGER.debug("Fetching new token from Enlighten")
                 await self.refresh()    
-        elif self.is_populated:
+        if self.is_populated:
             _LOGGER.debug(f"Token is populated: {self._token}")
             if self.is_expired:
                 if self._auto_renewal:
@@ -188,8 +201,6 @@ class EnphaseToken:
                         necessary credentials required for 
                         automatic token renewal"""
                     )
-        else:
-            pass
 
     async def refresh(self):
         """Refresh the Enphase token.
@@ -217,8 +228,8 @@ class EnphaseToken:
             await self.refresh_cookies()
         except httpx.HTTPError:
             pass
-        if self._use_token_cache:
-            self._save_token_to_cache(token_raw)
+        else:
+            await self._token_refreshed(token_raw)
     
     async def refresh_cookies(self):
         """Refresh the cookies.
@@ -243,7 +254,7 @@ class EnphaseToken:
             else:
                 return False
     
-    async def _init_from_token_cache(self):
+    async def _init_from_token_store(self):
         """Initialize EnphaseToken from the token cache.
         
         Returns
@@ -252,7 +263,7 @@ class EnphaseToken:
             True if sucessfully initialized from the cache. False otherwise.
 
         """
-        if token_raw := await self._load_token_from_cache():
+        if token_raw := self._token_store_data.get("EnphaseToken"):
             _LOGGER.debug(f"Loaded token from cache: {token_raw}")
             try:
                 _LOGGER.debug(
@@ -446,38 +457,46 @@ class EnphaseToken:
         else:
             return resp
 
-    async def _load_token_from_cache(self):
-        """Return the raw token from the cache.
-
-        Returns
-        -------
-        str or None
-            Returns the raw token or None.
-
-        """
-        if filepath := self._token_cache_filepath.is_file():
-            with filepath.open() as f:
-                token_json = json.load(f)
-                return token_json.get("EnphaseToken", None)
-        else:
-            _LOGGER.debug("Error while checking Path token_cache_filepath")
-            return None
-
-    async def _save_token_to_cache(self, token_raw):
-        """Save the raw token to the cache.
+    async def _token_refreshed(self, token_raw):
+        """Cleanup Action for refreshed token."""
+        if self._cache_token and self._token_store_data:
+            self._token_store_data["EnphaseToken"] = token_raw
+            await self.token_store.async_save(self._token_store_data)
+        if self._expose_token:
+            pass
         
-        Parameters
-        ----------
-        token_raw : str
-            Enphase token.
+    # async def _load_token_from_cache(self):
+    #     """Return the raw token from the cache.
 
-        Returns
-        -------
-        None.
+    #     Returns
+    #     -------
+    #     str or None
+    #         Returns the raw token or None.
 
-        """
-        token_json = {"EnphaseToken": token_raw}
-        filepath = self._token_cache_filepath
-        with filepath.open("w+") as f:
-            json.dump(token_json, f)
+    #     """
+    #     if filepath := self._token_cache_filepath.is_file():
+    #         with filepath.open() as f:
+    #             token_json = json.load(f)
+    #             return token_json.get("EnphaseToken", None)
+    #     else:
+    #         _LOGGER.debug("Error while checking Path token_cache_filepath")
+    #         return None
+
+    # async def _save_token_to_cache(self, token_raw):
+    #     """Save the raw token to the cache.
+        
+    #     Parameters
+    #     ----------
+    #     token_raw : str
+    #         Enphase token.
+
+    #     Returns
+    #     -------
+    #     None.
+
+    #     """
+    #     token_json = {"EnphaseToken": token_raw}
+    #     filepath = self._token_cache_filepath
+    #     with filepath.open("w+") as f:
+    #         json.dump(token_json, f)
         

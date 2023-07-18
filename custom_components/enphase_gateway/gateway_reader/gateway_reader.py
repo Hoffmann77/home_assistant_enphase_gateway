@@ -120,10 +120,12 @@ class GatewayReader:
             gateway_serial_num=None,
             use_token_auth=False,
             token_raw=None,
-            use_token_cache=False,
-            token_cache_filepath=None,
+            cache_token=False,
+            expose_token=False, # for future feature
+            token_exposure_path=None, # for future feature
             get_inverters=False,
             async_client=None,
+            store=None,
         ):
         """Init the EnvoyReader."""
         self.host = host.lower()
@@ -148,8 +150,10 @@ class GatewayReader:
                 password,
                 gateway_serial_num,
                 token_raw=token_raw,
-                use_token_cache=use_token_cache,
-                token_cache_filepath=token_cache_filepath,
+                token_store=store,
+                cache_token=cache_token,
+                expose_token=expose_token,
+                exposure_path=token_exposure_path,
             )
         else:
             self._enphase_token = None

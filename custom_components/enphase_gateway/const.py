@@ -24,7 +24,12 @@ NAME = "name"
 CONF_SERIAL_NUM = "serial_num"
 CONF_USE_TOKEN_AUTH = "use_token_auth"
 CONF_TOKEN_RAW = "token_raw"
-CONF_USE_TOKEN_CACHE = "use_token_cache"
+CONF_CACHE_TOKEN = "cache_token"
+CONF_EXPOSE_TOKEN = "expose_token"
+CONF_EXPOSURE_PATH = "exposure_path"
+
+
+
 CONF_TOKEN_CACHE_FILEPATH = "token_cache_filepath"
 CONF_GET_INVERTERS = "get_inverters"
 CONF_SINGLE_STORAGE_ENTITIES = "single_storage_entities"

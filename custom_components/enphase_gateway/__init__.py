@@ -11,6 +11,7 @@ from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_USERNA
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.storage import Store
 
 from .gateway_reader import GatewayReader
 from .const import (
@@ -20,6 +21,8 @@ from .const import (
 
 
 SCAN_INTERVAL = timedelta(seconds=60)
+STORE_VERSION = 1
+STORE_KEY = "enphase_gateway"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +32,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     config = entry.data
     options = entry.options
     name = config[CONF_NAME]
+    store = Store(hass, STORE_VERSION, ".".join([STORE_KEY, entry.entry_id]))
 
     gateway_reader = GatewayReader(
         config[CONF_HOST],
@@ -38,6 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         use_token_auth=config.get(CONF_USE_TOKEN_AUTH, False),
         use_token_cache=options.get(CONF_USE_TOKEN_CACHE, True),
         get_inverters=options.get(CONF_GET_INVERTERS, True),
+        store=store
         # async_client=get_async_client(hass),
     )
     
