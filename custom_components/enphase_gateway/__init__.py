@@ -16,7 +16,8 @@ from homeassistant.helpers.storage import Store
 from .gateway_reader import GatewayReader
 from .const import (
     COORDINATOR, DOMAIN, NAME, PLATFORMS, SENSORS, CONF_USE_TOKEN_AUTH, 
-    CONF_SERIAL_NUM, ENCHARGE_SENSORS, CONF_GET_INVERTERS, CONF_USE_TOKEN_CACHE
+    CONF_SERIAL_NUM, ENCHARGE_SENSORS, CONF_GET_INVERTERS, CONF_CACHE_TOKEN,
+    CONF_STORAGE_ENTITIES,
 )
 
 
@@ -40,7 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         password=config[CONF_PASSWORD],
         gateway_serial_num=config[CONF_SERIAL_NUM],
         use_token_auth=config.get(CONF_USE_TOKEN_AUTH, False),
-        use_token_cache=options.get(CONF_USE_TOKEN_CACHE, True),
+        cache_token=options.get(CONF_CACHE_TOKEN, True),
         get_inverters=options.get(CONF_GET_INVERTERS, True),
         store=store
         # async_client=get_async_client(hass),
@@ -61,13 +62,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 if description.key == "inverters":
                     production = await gateway_reader.inverters_production()
                     data["inverters_production"] = production
-
+                
                 elif description.key == "batteries":
                     storages = await gateway_reader.battery_storage()
                     if isinstance(storages, dict) and len(storages) > 0:
                         data[description.key] = storages
-                        # for storage in storages:
-                        #     data[storage] = storages[storage]
                 
                 elif description.key in {
                         "current_battery_capacity",
@@ -79,7 +78,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     func = getattr(gateway_reader, description.key)
                     data[description.key] = await func()
             
-            if ENCHARGE_SENSORS:
+            if ENCHARGE_SENSORS and options.get(CONF_STORAGE_ENTITIES, True):
                 storages = await gateway_reader.battery_storage()
                 storages = storages.get("ENCHARGE")
                 ensemble_power = await gateway_reader.ensemble_power()

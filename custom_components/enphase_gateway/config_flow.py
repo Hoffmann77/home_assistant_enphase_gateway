@@ -20,9 +20,9 @@ from .exceptions import (
     EnlightenUnauthorized, InvalidEnphaseToken
 )
 from .const import (
-    DOMAIN, CONF_SERIAL_NUM, CONF_USE_TOKEN_AUTH, CONF_TOKEN_RAW, 
-    CONF_CACHE_TOKEN, CONF_GET_INVERTERS, CONF_USE_LEGACY_NAME, 
-    CONF_SINGLE_STORAGE_ENTITIES
+    DOMAIN, CONF_SERIAL_NUM, CONF_USE_TOKEN_AUTH, CONF_TOKEN_RAW,
+    CONF_CACHE_TOKEN, CONF_GET_INVERTERS, CONF_USE_LEGACY_NAME,
+    CONF_STORAGE_ENTITIES
 )
 
 
@@ -32,19 +32,9 @@ DEFAULT_TITLE = "Enphase Gateway"
 LEGACY_TITLE = "Envoy"
 
 
-@staticmethod
-@callback
-def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
-) -> config_entries.OptionsFlow:
-    """Create the options flow."""
-    return GatewayOptionsFlow(config_entry)
-
-
 async def validate_input(
-        hass: HomeAssistant, 
-        data: dict[str, Any],
-        options: dict[str, Any]) -> GatewayReader:
+        hass: HomeAssistant,
+        data: dict[str, Any]) -> GatewayReader:
     """Validate the user input allows us to connect."""
     gateway_reader = GatewayReader(
         data[CONF_HOST],
@@ -52,14 +42,11 @@ async def validate_input(
         password=data.get(CONF_PASSWORD, ""),
         gateway_serial_num=data.get(CONF_SERIAL_NUM, ""),
         use_token_auth=data.get(CONF_USE_TOKEN_AUTH, False),
-        cache_token=options.get(CONF_CACHE_TOKEN, True),
-        get_inverters=options.get(CONF_GET_INVERTERS, False),
+        get_inverters=False,
         # async_client=get_async_client(hass),
         
         # preperations for upcoming features
         # token_raw=data.get(CONF_TOKEN_RAW, ""),
-        # use_token_cache=data.get(CONF_USE_TOKEN_CACHE, False),
-        # token_cache_filepath=data.get(CONF_TOKEN_CACHE_FILEPATH, ""),
     )
     
     try:
@@ -85,8 +72,42 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize an gateway flow."""
         self.ip_address = None
         self.username = None
-        self.gateway_type = None
+        self._gateway_reader = None
         self._reauth_entry = None
+        self._user_step_data = None
+        
+    async def async_migrate_entry(
+            hass, 
+            config_entry: config_entries.ConfigEntry) -> bool:
+        """Migrate old entry."""
+        _LOGGER.debug(f"Migrating from version {config_entry.version}")
+    
+        if config_entry.version == 1:
+    
+            new = {**config_entry.data}
+            
+            # Remove unwanted variables
+            new.pop("token_raw", None)
+            new.pop("use_token_cache", None)
+            new.pop("token_cache_filepath", None)
+            new.pop("single_inverter_entities", None)
+            
+            options = {
+                CONF_GET_INVERTERS: True,
+                CONF_STORAGE_ENTITIES: True,
+                CONF_CACHE_TOKEN: True,
+            }
+            
+            config_entry.version = 2
+            hass.config_entries.async_update_entry(
+                config_entry,
+                data=new,
+                options=options
+            )
+    
+        _LOGGER.info("Migration to version {config_entry.version} successful")
+    
+        return True
     
     async def async_step_zeroconf(
             self, 
@@ -160,10 +181,6 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             use_legacy_name = user_input.pop(CONF_USE_LEGACY_NAME, False)
-            options = {
-                CONF_GET_INVERTERS: user_input.pop(CONF_GET_INVERTERS),
-                CONF_CACHE_TOKEN: user_input.pop(CONF_CACHE_TOKEN),
-            }
             if (
                 not self._reauth_entry
                 and user_input[CONF_HOST] in self._get_current_hosts()
@@ -174,7 +191,6 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 gateway_reader = await validate_input(
                     self.hass, 
                     user_input,
-                    options
                 )
             except CannotConnect:
                 errors["base"] = "cannot_connect"
@@ -188,6 +204,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
+                self._gateway_reader = gateway_reader
                 data = user_input.copy() #| self._get_placeholders()
                 data[CONF_NAME] = self._generate_name(use_legacy_name)
                 
@@ -195,7 +212,6 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self.hass.config_entries.async_update_entry(
                         self._reauth_entry,
                         data=data,
-                        options=options
                     )
                     return self.async_abort(reason="reauth_successful")
                 
@@ -205,11 +221,8 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         data[CONF_NAME] = self._generate_name(use_legacy_name)
                 
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title=data[CONF_NAME], 
-                    data=data,
-                    options=options
-                )
+                self._user_step_data = data
+                return await self.async_step_config()
                 
         if self.unique_id:
             self.context["title_placeholders"] = {
@@ -218,10 +231,48 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         return self.async_show_form(
             step_id="user",
-            data_schema=self._generate_data_shema(),
+            data_schema=self._get_step_user_shema(),
             errors=errors,
         )
 
+    async def async_step_config(
+            self, 
+            user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Handle the configuration step.
+        
+        Parameters
+        ----------
+        user_input : dict[str, Any] | None, optional
+            Form user input. The default is None.
+
+        Returns
+        -------
+        FlowResult
+            Config flow result.
+
+        """
+        errors = {}
+        user_step_data = self._user_step_data
+        if user_input is not None:
+            options = user_input.copy()
+
+            return self.async_create_entry(
+                title=user_step_data[CONF_NAME], 
+                data=user_step_data,
+                options=options
+            )
+        
+        gateway_info = await self._gateway_reader.gateway_info()
+        self.context["title_placeholders"] = {
+            "gateway_type": gateway_info.get("gateway_type", ""),
+        }
+        
+        return self.async_show_form(
+            step_id="config",
+            data_schema=self._get_step_config_shema(),
+            errors=errors,
+        )
+        
     async def async_step_reauth(
             self, 
             user_input: dict[str, Any] | None = None) -> FlowResult:
@@ -244,7 +295,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return await self.async_step_user()
     
     @callback
-    def _generate_data_shema(self):
+    def _get_step_user_shema(self):
         """Generate schema."""
         schema = {}
         
@@ -260,7 +311,22 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         schema[vol.Optional(CONF_SERIAL_NUM, default=self.unique_id or "")] = str
         schema[vol.Optional(CONF_USE_TOKEN_AUTH, default=False)] = bool
         schema[vol.Optional(CONF_USE_LEGACY_NAME, default=False)] = bool
-        schema[vol.Optional(CONF_GET_INVERTERS, default=False)] = bool
+        return vol.Schema(schema)
+    
+    @callback
+    def _get_step_config_shema(self):
+        """Generate schema."""
+        schema = {
+            vol.Optional(CONF_GET_INVERTERS, default=True): bool,
+        }
+        if self._gateway_reader.storages:
+            schema.update(
+                {vol.Optional(CONF_STORAGE_ENTITIES, True): bool}
+            )
+        if self._gateway_reader.use_token_auth:
+            schema.update(
+                {vol.Optional(CONF_CACHE_TOKEN, True): bool}
+            )
         return vol.Schema(schema)
 
     @callback
@@ -291,17 +357,15 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return True
         return False
     
-    # def _get_placeholders(self):
-    #     """Return placeholders for config_entry."""
-    #     placeholders = {
-    #         CONF_TOKEN_RAW: "",
-    #         CONF_USE_TOKEN_CACHE: False,
-    #         CONF_TOKEN_CACHE_FILEPATH: "",
-    #         CONF_GET_INVERTERS: True,
-    #     }
-    #     return placeholders
-
-        
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+            config_entry: config_entries.ConfigEntry
+    ) -> config_entries.OptionsFlow:
+        """Create the options flow."""
+        return GatewayOptionsFlow(config_entry)
+    
+    
 class GatewayOptionsFlow(config_entries.OptionsFlow):
     """Handle a options flow for Enphase Gateway."""
     
@@ -327,13 +391,23 @@ class GatewayOptionsFlow(config_entries.OptionsFlow):
         options = self.config_entry.options
         schema = {
             vol.Optional(
-                CONF_GET_INVERTERS, 
-                default=options.get(CONF_GET_INVERTERS, False)
-            ): bool,
-            vol.Optional(
-                CONF_CACHE_TOKEN, 
-                default=options.get(CONF_CACHE_TOKEN, True)
-            ): bool,
+                CONF_GET_INVERTERS,
+                default=options.get(CONF_GET_INVERTERS, True)
+            ): bool,   
         }
+        if options.get(CONF_STORAGE_ENTITIES):
+            schema.update({
+                vol.Optional(
+                    CONF_STORAGE_ENTITIES,
+                    default=options.get(CONF_STORAGE_ENTITIES)
+                ): bool,
+            })
+        if options.get(CONF_CACHE_TOKEN):
+            schema.update({
+                vol.Optional(
+                    CONF_CACHE_TOKEN,
+                    default=options.get(CONF_CACHE_TOKEN)
+                ): bool,
+            })
         return vol.Schema(schema)
 

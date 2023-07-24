@@ -27,12 +27,8 @@ CONF_TOKEN_RAW = "token_raw"
 CONF_CACHE_TOKEN = "cache_token"
 CONF_EXPOSE_TOKEN = "expose_token"
 CONF_EXPOSURE_PATH = "exposure_path"
-
-
-
-CONF_TOKEN_CACHE_FILEPATH = "token_cache_filepath"
 CONF_GET_INVERTERS = "get_inverters"
-CONF_SINGLE_STORAGE_ENTITIES = "single_storage_entities"
+CONF_STORAGE_ENTITIES = "storage_entities"
 CONF_USE_LEGACY_NAME = "use_lagacy_name"
 
 SENSORS = (
@@ -107,14 +103,15 @@ SENSORS = (
         key="total_battery_percentage",
         name="Total Battery Percentage",
         native_unit_of_measurement=PERCENTAGE,
-        state_class=SensorStateClass.MEASUREMENT
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.BATTERY
     ),
     SensorEntityDescription(
         key="current_battery_capacity",
         name="Current Battery Capacity",
         native_unit_of_measurement=ENERGY_WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.ENERGY
+        device_class=SensorDeviceClass.ENERGY_STORAGE
     ),
 )
 
@@ -124,14 +121,14 @@ ENCHARGE_SENSORS = (
         name="Capacity",
         native_unit_of_measurement=ENERGY_WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.ENERGY
+        device_class=SensorDeviceClass.ENERGY_STORAGE
     ),
     SensorEntityDescription(
         key="current_capacity",
         name="Current Capacity",
         native_unit_of_measurement=ENERGY_WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.ENERGY
+        device_class=SensorDeviceClass.ENERGY_STORAGE
     ),
     SensorEntityDescription(
         key="percentFull",

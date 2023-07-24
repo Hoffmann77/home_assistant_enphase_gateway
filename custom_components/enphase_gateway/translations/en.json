@@ -14,28 +14,35 @@
     "flow_title": "{serial_num} ({host})",
     "step": {
       "user": {
+        "description": "- For Firmware D7.x please enter your login credentials for the Enlighten website as username and password and check `Use Token based authentication`.\n - For older models, enter username `envoy` without a password or enter username `installer` without a password for even older models.\n - For all other models, enter a valid username and password.",
         "data": {
           "host": "Host",
           "password": "Password",
           "username": "Username",
           "serial_num": "Gateway's serial number",
           "use_token_auth": "Use Token based authentication (Required for Firmware D7.x)",
-          "use_lagacy_name": "Use old naming schema (Recommended if you used another enphase integration before and want to keep your historic data)",
-          "get_inverters": "Enable inverter entities (Show production values for every inverter)"
-        },
-        "description": "- For Firmware D7.x please enter your login credentials for the Enlighten website as username and password and check `Use Token based authentication`.\n - For older models, enter username `envoy` without a password or enter username `installer` without a password for even older models.\n - For all other models, enter a valid username and password."
+          "use_lagacy_name": "I have used another Enphase integration before and want to keep my historic data"
+        }
+      },
+      "config": {
+        "title": "{gateway_type} Configuration",
+        "data": {
+          "get_inverters": "Enable single Inverter entities (Production values for every single Inverter)",
+          "storage_entities": "Enable detailed battery Entities",
+          "cache_token": "Cache the Enphase Token"
+        }
       }
     }
   },
   "options": {
     "step": {
-      "user": {
-        "title": "Gateway options",
+      "init": {
+        "title": "Configuration",
+        "description": "Configure the Integration",
         "data": {
-          "get_inverters": "Enable inverter entities (Show production values for every inverter)"
-        },
-        "data_description": {
-          "get_inverters": "Show production values for every inverter"
+          "get_inverters": "Enable single Inverter entities (Production values for every single Inverter)",
+          "storage_entities": "Enable detailed battery Entities",
+          "cache_token": "Cache the Enphase Token"
         }
       }
     }

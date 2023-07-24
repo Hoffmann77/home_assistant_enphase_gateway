@@ -96,9 +96,6 @@ class EnphaseToken:
             )
             raise TokenConfigurationError(msg)
         
-        if token_store:
-            self._token_store_data = await token_store.async_load()
-            
         if exposure_path:
             self._exposure_path = Path(exposure_path).resolve()
         else:
@@ -180,20 +177,25 @@ class EnphaseToken:
         _LOGGER.debug(f"Preparing token: {self._token}")
         if not self._token:
             _LOGGER.debug("Found empty token - Populating token")
-            if self._cache_token and self._token_store_data:
-                _LOGGER.debug("Populating from token cache")   
-                if not await self._init_from_token_store():
+            if self._cache_token and self._token_store:
+                self._token_store_data = await self._token_store.async_load()
+                if self._token_store_data:
+                    _LOGGER.debug("Populating from token cache") 
+                    if not await self._init_from_token_store():
+                        _LOGGER.debug("Fetching new token from Enlighten")
+                        await self.refresh()
+                else:
                     _LOGGER.debug("Fetching new token from Enlighten")
                     await self.refresh()
             else:
                 _LOGGER.debug("Fetching new token from Enlighten")
-                await self.refresh()    
+                await self.refresh()
         if self.is_populated:
             _LOGGER.debug(f"Token is populated: {self._token}")
             if self.is_expired:
                 if self._auto_renewal:
                     _LOGGER.debug("Found Expired token - Retrieving new token")
-                    await self.refresh() 
+                    await self.refresh()
                 else:
                     _LOGGER.debug(
                         """Found Expired token. 
@@ -225,11 +227,12 @@ class EnphaseToken:
             f"New Enphase {self._type} token valid until: {self.expiration_date}"
         )
         try:
-            await self.refresh_cookies()
+            _refreshed = await self.refresh_cookies()
         except httpx.HTTPError:
             pass
         else:
-            await self._token_refreshed(token_raw)
+            if _refreshed:
+                await self._token_refreshed(token_raw)
     
     async def refresh_cookies(self):
         """Refresh the cookies.
@@ -418,7 +421,11 @@ class EnphaseToken:
         except httpx.HTTPStatusError as err:
             status_code = err.response.status_code
             if status_code == 401:
-                raise EnlightenUnauthorized("Enlighten unauthorized") from err
+                raise EnlightenUnauthorized(
+                    "Enlighten unauthorized",
+                    request=err.request,
+                    response=err.response
+                )
             raise err
         response_data = json.loads(resp.text)
         payload = {
@@ -459,7 +466,9 @@ class EnphaseToken:
 
     async def _token_refreshed(self, token_raw):
         """Cleanup Action for refreshed token."""
-        if self._cache_token and self._token_store_data:
+        if self._cache_token and self._token_store:
+            if not self._token_store_data:
+                self._token_store_data = await self._token_store.async_load()
             self._token_store_data["EnphaseToken"] = token_raw
             await self.token_store.async_save(self._token_store_data)
         if self._expose_token:

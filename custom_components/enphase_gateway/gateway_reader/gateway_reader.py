@@ -139,7 +139,7 @@ class GatewayReader:
         self.endpoint_results = {}
         self.meters_enabled = False
         self.device_info = {}
-        self.fetch_ensemble = False
+        self.storages = {}
         self.get_inverters = get_inverters
         self._async_client = async_client
         self._protocol = "https" if use_token_auth else "http"
@@ -195,7 +195,7 @@ class GatewayReader:
             return self._enphase_token.cookies or None
         else:
             return None
-        
+    
     async def getData(self, getInverters=True):
         """Fetch data from the endpoint.
 
@@ -266,8 +266,11 @@ class GatewayReader:
             endpoints = GATEWAY_DETECTION_ENDPOINTS[gateway_type]
         else:
             endpoints = GATEWAY_ENDPOINTS[gateway_type]
-            if self.fetch_ensemble:
-                endpoints.update(ENSEMBLE_ENDPOINTS)
+            if self.storages:
+                if self.storages.get("ENCHARGE", False):
+                    endpoints.update(ENSEMBLE_ENDPOINTS) 
+            # if self.fetch_ensemble:
+            #     endpoints.update(ENSEMBLE_ENDPOINTS)
         for key, endpoint in endpoints.items():
             await self._update_endpoint(key, endpoint, detection)
             # TODO: check if for loop is viable for async.
@@ -397,19 +400,36 @@ class GatewayReader:
         if production_json := self.endpoint_results.get("production_json"):
             status_code = production_json.status_code
             if status_code == 200:
-                if has_production_and_consumption(production_json.json()):
-                    self.meters_enabled = has_metering_setup(
-                        production_json.json()
-                    )
-                    self.gateway_type = "ENVOY_MODEL_S_METERED"
+                try:
+                    production_json = production_json.json()
+                except JSONDecodeError:
+                    _LOGGER.debug("JSON Decode error: '_setup_envoy_model_s'")
+                    return False
                 else:
-                    self.gateway_type = "ENVOY_MODEL_S_STANDARD"
+                    if has_production_and_consumption(production_json):
+                        self.meters_enabled = has_metering_setup(
+                            production_json
+                        )
+                        self.gateway_type = "ENVOY_MODEL_S_METERED"
+                    else:
+                        self.gateway_type = "ENVOY_MODEL_S_STANDARD"
         
         if self.gateway_type:
+            if "percentFull" in production_json["storage"][0].keys():
+                self.storages.update({"acb": True})
+            
             if inventory := self.endpoint_results.get("ensemble_inventory"):
-                inventory = inventory.json()
-                if len(inventory) > 0 and "devices" in inventory[0].keys():
-                    self.fetch_ensemble = True     
+                try:
+                    ensemble_inventory = inventory.json()
+                except JSONDecodeError:
+                    _LOGGER.debug("JSON Decode error: '_setup_envoy_model_s'")
+                    pass
+                else:
+                    for entry in ensemble_inventory:
+                        storage_type = entry.get("type")
+                        if "devices" in entry.keys():
+                            self.storages.update({storage_type: True})
+            
             return True
         
         return False
@@ -425,6 +445,7 @@ class GatewayReader:
         if production := self.endpoint_results.get("production_legacy"):
             if production.status_code == 200:
                 self.gateway_type = "ENVOY_MODEL_LEGACY"
+                self.get_inverters = False
                 return True
         return False
     
