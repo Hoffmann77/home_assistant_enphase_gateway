@@ -204,59 +204,6 @@ class EnphaseToken:
                         automatic token renewal"""
                     )
 
-    async def refresh(self):
-        """Refresh the Enphase token.
-        
-        Fetch a new Token from Enlighten, decode the token and set the
-        instance's variables accordingly.
-        
-        Returns
-        -------
-        None.
-
-        """
-        _LOGGER.debug("Refreshing Enphase Token")
-        token_raw = await self._fetch_enphase_token()
-        decoded = await self._decode_token(token_raw)
-        self._token = token_raw
-        self._type = decoded["enphaseUser"]
-        self.expiration_date = datetime.fromtimestamp(
-            decoded["exp"], tz=timezone.utc
-        )
-        _LOGGER.debug(
-            f"New Enphase {self._type} token valid until: {self.expiration_date}"
-        )
-        try:
-            _refreshed = await self.refresh_cookies()
-        except httpx.HTTPError:
-            pass
-        else:
-            if _refreshed:
-                await self._token_refreshed(token_raw)
-    
-    async def refresh_cookies(self):
-        """Refresh the cookies.
-        
-        Refresh self._cookies with the cookies returned by 
-        self._refresh_token_cookies.
-
-        Returns
-        -------
-        bool
-            True if refreshing the cookies was sucessfull. False otherwise.
-
-        """
-        try:
-            cookies = await self._refresh_token_cookies(self._token)
-        except httpx.HTTPError:
-            return False
-        else:
-            if cookies:
-                self._cookies = cookies
-                return True
-            else:
-                return False
-    
     async def _init_from_token_store(self):
         """Initialize EnphaseToken from the token cache.
         
@@ -328,6 +275,59 @@ class EnphaseToken:
                 _LOGGER.debug("Token is not valid")
                 raise InvalidEnphaseToken(f"Token invalid: {token_raw}")
     
+    async def refresh(self):
+        """Refresh the Enphase token.
+        
+        Fetch a new Token from Enlighten, decode the token and set the
+        instance's variables accordingly.
+        
+        Returns
+        -------
+        None.
+
+        """
+        _LOGGER.debug("Refreshing Enphase Token")
+        token_raw = await self._fetch_enphase_token()
+        decoded = await self._decode_token(token_raw)
+        self._token = token_raw
+        self._type = decoded["enphaseUser"]
+        self.expiration_date = datetime.fromtimestamp(
+            decoded["exp"], tz=timezone.utc
+        )
+        _LOGGER.debug(
+            f"New Enphase {self._type} token valid until: {self.expiration_date}"
+        )
+        try:
+            _refreshed = await self.refresh_cookies()
+        except httpx.HTTPError:
+            pass
+        else:
+            if _refreshed:
+                await self._token_refreshed(token_raw)
+    
+    async def refresh_cookies(self):
+        """Refresh the cookies.
+        
+        Refresh self._cookies with the cookies returned by 
+        self._refresh_token_cookies.
+
+        Returns
+        -------
+        bool
+            True if refreshing the cookies was sucessfull. False otherwise.
+
+        """
+        try:
+            cookies = await self._refresh_token_cookies(self._token)
+        except httpx.HTTPError:
+            return False
+        else:
+            if cookies:
+                self._cookies = cookies
+                return True
+            else:
+                return False
+    
     async def _refresh_token_cookies(self, token_raw):
         """Call '/auth/check_jwt' to check if token is valid.
         
@@ -363,7 +363,7 @@ class EnphaseToken:
         else:
             soup = BeautifulSoup(resp.text, features="html.parser")
             validity = soup.find("h2").contents[0]
-            if validity == "Valid token":
+            if validity == "Valid token.":
                 _LOGGER.debug("Token is valid")
                 return resp.cookies
             else:
@@ -401,6 +401,16 @@ class EnphaseToken:
             raise err
         else:
             return decoded
+        
+    async def _token_refreshed(self, token_raw):
+        """Cleanup Action for refreshed token."""
+        if self._cache_token and self._token_store:
+            if not self._token_store_data:
+                self._token_store_data = await self._token_store.async_load() or {}
+            self._token_store_data["EnphaseToken"] = token_raw
+            await self._token_store.async_save(self._token_store_data)
+        if self._expose_token:
+            pass
 
     async def _fetch_enphase_token(self):
         """Fetch the Enphase token from Enlighten.
@@ -464,15 +474,7 @@ class EnphaseToken:
         else:
             return resp
 
-    async def _token_refreshed(self, token_raw):
-        """Cleanup Action for refreshed token."""
-        if self._cache_token and self._token_store:
-            if not self._token_store_data:
-                self._token_store_data = await self._token_store.async_load()
-            self._token_store_data["EnphaseToken"] = token_raw
-            await self.token_store.async_save(self._token_store_data)
-        if self._expose_token:
-            pass
+    
         
     # async def _load_token_from_cache(self):
     #     """Return the raw token from the cache.

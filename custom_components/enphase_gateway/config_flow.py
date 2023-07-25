@@ -75,40 +75,8 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._gateway_reader = None
         self._reauth_entry = None
         self._user_step_data = None
+        self._discovery_info = None
         
-    async def async_migrate_entry(
-            hass, 
-            config_entry: config_entries.ConfigEntry) -> bool:
-        """Migrate old entry."""
-        _LOGGER.debug(f"Migrating from version {config_entry.version}")
-    
-        if config_entry.version == 1:
-    
-            new = {**config_entry.data}
-            
-            # Remove unwanted variables
-            new.pop("token_raw", None)
-            new.pop("use_token_cache", None)
-            new.pop("token_cache_filepath", None)
-            new.pop("single_inverter_entities", None)
-            
-            options = {
-                CONF_GET_INVERTERS: True,
-                CONF_STORAGE_ENTITIES: True,
-                CONF_CACHE_TOKEN: True,
-            }
-            
-            config_entry.version = 2
-            hass.config_entries.async_update_entry(
-                config_entry,
-                data=new,
-                options=options
-            )
-    
-        _LOGGER.info("Migration to version {config_entry.version} successful")
-    
-        return True
-    
     async def async_step_zeroconf(
             self, 
             discovery_info: zeroconf.ZeroconfServiceInfo) -> FlowResult:
@@ -129,6 +97,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             
         """
         _LOGGER.debug(f"""Zeroconf discovery: {discovery_info}""")
+        self._discovery_info = discovery_info
         serial_num = discovery_info.properties["serialnum"]
         current_entry = await self.async_set_unique_id(serial_num)
         
@@ -142,7 +111,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="pref_disable_new_entities")  
         
         self.ip_address = discovery_info.host
-        self._abort_if_unique_id_configured({CONF_HOST: self.ip_address}) 
+        self._abort_if_unique_id_configured({CONF_HOST: self.ip_address})
         
         # set unique_id if not set for an entry with the same IP adress
         for entry in self._async_current_entries(include_ignore=False):
@@ -188,10 +157,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason="already_configured")
            
             try:
-                gateway_reader = await validate_input(
-                    self.hass, 
-                    user_input,
-                )
+                gateway_reader = await validate_input(self.hass, user_input)
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
@@ -205,7 +171,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 self._gateway_reader = gateway_reader
-                data = user_input.copy() #| self._get_placeholders()
+                data = user_input.copy()
                 data[CONF_NAME] = self._generate_name(use_legacy_name)
                 
                 if self._reauth_entry:
@@ -263,7 +229,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
         
         gateway_info = await self._gateway_reader.gateway_info()
-        self.context["title_placeholders"] = {
+        placeholders = {
             "gateway_type": gateway_info.get("gateway_type", ""),
         }
         
@@ -271,6 +237,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="config",
             data_schema=self._get_step_config_shema(),
             errors=errors,
+            description_placeholders=placeholders
         )
         
     async def async_step_reauth(
@@ -321,11 +288,11 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         }
         if self._gateway_reader.storages:
             schema.update(
-                {vol.Optional(CONF_STORAGE_ENTITIES, True): bool}
+                {vol.Optional(CONF_STORAGE_ENTITIES, default=True): bool}
             )
         if self._gateway_reader.use_token_auth:
             schema.update(
-                {vol.Optional(CONF_CACHE_TOKEN, True): bool}
+                {vol.Optional(CONF_CACHE_TOKEN, default=True): bool}
             )
         return vol.Schema(schema)
 
@@ -389,20 +356,21 @@ class GatewayOptionsFlow(config_entries.OptionsFlow):
     def _generate_data_shema(self):
         """Generate schema."""
         options = self.config_entry.options
+        options_keys = options.keys()
         schema = {
             vol.Optional(
                 CONF_GET_INVERTERS,
                 default=options.get(CONF_GET_INVERTERS, True)
             ): bool,   
         }
-        if options.get(CONF_STORAGE_ENTITIES):
+        if CONF_STORAGE_ENTITIES in options_keys:
             schema.update({
                 vol.Optional(
                     CONF_STORAGE_ENTITIES,
                     default=options.get(CONF_STORAGE_ENTITIES)
                 ): bool,
             })
-        if options.get(CONF_CACHE_TOKEN):
+        if CONF_CACHE_TOKEN in options_keys:
             schema.update({
                 vol.Optional(
                     CONF_CACHE_TOKEN,

@@ -41,8 +41,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         password=config[CONF_PASSWORD],
         gateway_serial_num=config[CONF_SERIAL_NUM],
         use_token_auth=config.get(CONF_USE_TOKEN_AUTH, False),
-        cache_token=options.get(CONF_CACHE_TOKEN, True),
-        get_inverters=options.get(CONF_GET_INVERTERS, True),
+        cache_token=options.get(CONF_CACHE_TOKEN, False),
+        get_inverters=options.get(CONF_GET_INVERTERS, False),
         store=store
         # async_client=get_async_client(hass),
     )
@@ -135,3 +135,36 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
+
+
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Migrate old entry."""
+    _LOGGER.debug(f"Migrating from version {config_entry.version}")
+
+    if config_entry.version == 1:
+
+        new = {**config_entry.data}
+        
+        # Remove unwanted variables
+        new.pop("token_raw", None)
+        new.pop("use_token_cache", None)
+        new.pop("token_cache_filepath", None)
+        new.pop("single_inverter_entities", None)
+        
+        options = {
+            CONF_GET_INVERTERS: True,
+            CONF_STORAGE_ENTITIES: True,
+            CONF_CACHE_TOKEN: True,
+        }
+        
+        config_entry.version = 2
+        hass.config_entries.async_update_entry(
+            config_entry,
+            data=new,
+            options=options
+        )
+
+    _LOGGER.info("Migration to version {config_entry.version} successful")
+
+    return True
+

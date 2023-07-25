@@ -370,7 +370,7 @@ class GatewayReader:
         if self.password == "" and not self.use_token_auth:
             self.password = await self._get_password_from_serial_num()
         
-        for gateway_type in GATEWAY_DETECTION_ENDPOINTS.keys():    
+        for gateway_type in GATEWAY_DETECTION_ENDPOINTS.keys():
             self.endpoint_results = {}
             try:
                 await self._update(detection=True, gateway_type=gateway_type) 
@@ -503,8 +503,9 @@ class GatewayReader:
     
     async def gateway_info(self):
         """Return information about the devices."""
-        strings = self.gateway_type.lower().split("_")
-        gateway_type = " ".join([string[0].upper() for string in strings])
+        if self.gateway_type:
+            strings = self.gateway_type.lower().split("_")
+            gateway_type = " ".join(string.capitalize() for string in strings)
         return {
             "gateway_type": gateway_type or None
         }

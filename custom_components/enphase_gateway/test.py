@@ -5,15 +5,15 @@ import datetime
 #import jwt
 
 
-test = {"use_cache": None}
-
-
-x = json.dumps(test)
 
 
 
+x = None
 
-print(json.loads(x))
+if not x:
+    print(x)
+
+
 
 
 if None == "test":
