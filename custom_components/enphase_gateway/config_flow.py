@@ -13,6 +13,7 @@ from homeassistant.components import zeroconf
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers.httpx_client import get_async_client
 
 from .gateway_reader import GatewayReader
 from .exceptions import (
@@ -33,34 +34,60 @@ LEGACY_TITLE = "Envoy"
 
 
 async def validate_input(
-        hass: HomeAssistant,
-        data: dict[str, Any]) -> GatewayReader:
+    hass: HomeAssistant, 
+    host: str,
+    username: str,
+    password: str,
+) -> GatewayReader:
     """Validate the user input allows us to connect."""
-    gateway_reader = GatewayReader(
-        data[CONF_HOST],
-        username=data.get(CONF_USERNAME, "envoy"),
-        password=data.get(CONF_PASSWORD, ""),
-        gateway_serial_num=data.get(CONF_SERIAL_NUM, ""),
-        use_token_auth=data.get(CONF_USE_TOKEN_AUTH, False),
-        get_inverters=False,
-        # async_client=get_async_client(hass),
-        
-        # preperations for upcoming features
-        # token_raw=data.get(CONF_TOKEN_RAW, ""),
-    )
-    
-    try:
-        await gateway_reader.getData()
-    except InvalidEnphaseToken as err:
-        raise InvalidToken from err
-    except EnlightenUnauthorized as err:
-        raise EnlightenInvalidAuth from err
-    except httpx.HTTPStatusError as err:
-        raise InvalidAuth from err
-    except (RuntimeError, httpx.HTTPError) as err:
-        raise CannotConnect from err
-
+    gateway_reader = GatewayReader(host, get_async_client(hass, verify_ssl=False))
+    await gateway_reader.setup()
+    await gateway_reader.authenticate(username=username, password=password)
+    await gateway_reader.update()
     return gateway_reader
+
+    # except InvalidEnphaseToken as err:
+    #     raise InvalidToken from err
+    # except EnlightenUnauthorized as err:
+    #     raise EnlightenInvalidAuth from err
+    # except httpx.HTTPStatusError as err:
+    #     raise InvalidAuth from err
+    # except (RuntimeError, httpx.HTTPError) as err:
+    #     raise CannotConnect from err
+
+
+
+
+# async def validate_input_old(
+#         hass: HomeAssistant,
+#         data: dict[str, Any]) -> GatewayReader:
+#     """Validate the user input allows us to connect."""
+#     gateway_reader = GatewayReader(
+#         data[CONF_HOST],
+#         username=data.get(CONF_USERNAME, "envoy"),
+#         password=data.get(CONF_PASSWORD, ""),
+#         gateway_serial_num=data.get(CONF_SERIAL_NUM, ""),
+#         use_token_auth=data.get(CONF_USE_TOKEN_AUTH, False),
+#         get_inverters=False,
+#         # async_client=get_async_client(hass),
+        
+#         # preperations for upcoming features
+#         # token_raw=data.get(CONF_TOKEN_RAW, ""),
+#     )
+    
+#     try:
+#         await gateway_reader.getData()
+#     except InvalidEnphaseToken as err:
+#         raise InvalidToken from err
+#     except EnlightenUnauthorized as err:
+#         raise EnlightenInvalidAuth from err
+#     except httpx.HTTPStatusError as err:
+#         raise InvalidAuth from err
+#     except (RuntimeError, httpx.HTTPError) as err:
+#         raise CannotConnect from err
+
+#     return gateway_reader
+
 
 
 class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -72,14 +99,15 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize an gateway flow."""
         self.ip_address = None
         self.username = None
-        self._gateway_reader = None
         self._reauth_entry = None
-        self._user_step_data = None
         self._discovery_info = None
+        self._gateway_reader = None
+        self._step_data = {}
         
     async def async_step_zeroconf(
             self, 
-            discovery_info: zeroconf.ZeroconfServiceInfo) -> FlowResult:
+            discovery_info: zeroconf.ZeroconfServiceInfo,
+    ) -> FlowResult:
         """Handle a config flow initialized by zeroconf discovery.
         
         Update the IP adress of discovered devices unless the system 
@@ -133,7 +161,8 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             
     async def async_step_user(
             self, 
-            user_input: dict[str, Any] | None = None) -> FlowResult:
+            user_input: dict[str, Any] | None = None,
+    ) -> FlowResult:
         """Handle the user step.
         
         Parameters
@@ -147,17 +176,30 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             Config flow result.
 
         """
-        errors = {}
+        errors: dict[str, str] = {}
+        description_placeholders: dict[str, str] = {}
+        
+        if self._reauth_entry:
+            host = self._reauth_entry.data[CONF_HOST]
+        else:
+            host = (user_input or {}).get(CONF_HOST) or self.ip_address or ""
+        
         if user_input is not None:
             use_legacy_name = user_input.pop(CONF_USE_LEGACY_NAME, False)
-            if (
-                not self._reauth_entry
-                and user_input[CONF_HOST] in self._get_current_hosts()
-            ):
+            
+            if not self._reauth_entry and host in self._get_current_hosts():
                 return self.async_abort(reason="already_configured")
-           
+            
+            
+            
+            
             try:
-                gateway_reader = await validate_input(self.hass, user_input)
+                gateway_reader = await validate_input(
+                    self.hass, 
+                    host,
+                    username=user_input.get(CONF_USERNAME),
+                    password=user_input.get(CONF_PASSWORD),
+                )
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
@@ -171,23 +213,33 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 self._gateway_reader = gateway_reader
-                data = user_input.copy()
-                data[CONF_NAME] = self._generate_name(use_legacy_name)
+                
+                name = self._generate_name(use_legacy_name)
+                #data = user_input.copy()
+                #data[CONF_NAME] = self._generate_name(use_legacy_name)
                 
                 if self._reauth_entry:
                     self.hass.config_entries.async_update_entry(
                         self._reauth_entry,
-                        data=data,
+                        data=self._reauth_entry.data | user_input,
+                    )
+                    self.hass.async_create_task(
+                        self.hass.config_entries.async_reload(
+                            self._reauth_entry.entry_id
+                        )
                     )
                     return self.async_abort(reason="reauth_successful")
                 
                 if not self.unique_id:
-                    if serial_num := await gateway_reader.get_serial_number():
-                        await self.async_set_unique_id(serial_num)    
-                        data[CONF_NAME] = self._generate_name(use_legacy_name)
+                    await self.async_set_unique_id(gateway_reader.serial_number)   
+                    name = self._generate_name(use_legacy_name)
+                    #data[CONF_NAME] = self._generate_name(use_legacy_name)
                 
-                self._abort_if_unique_id_configured()
-                self._user_step_data = data
+                else:
+                    self._abort_if_unique_id_configured()
+                
+                _data = {CONF_HOST: host, CONF_NAME: name} | user_input
+                self._step_data["user"] = _data
                 return await self.async_step_config()
                 
         if self.unique_id:
@@ -195,15 +247,18 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_SERIAL_NUM: self.unique_id,
                 CONF_HOST: self.ip_address,
             }
+            
         return self.async_show_form(
             step_id="user",
-            data_schema=self._get_step_user_shema(),
+            data_schema=self._generate_shema_user_step(),
+            description_placeholders=description_placeholders,
             errors=errors,
         )
 
     async def async_step_config(
-            self, 
-            user_input: dict[str, Any] | None = None) -> FlowResult:
+            self,
+            user_input: dict[str, Any] | None = None, 
+    ) -> FlowResult:
         """Handle the configuration step.
         
         Parameters
@@ -217,27 +272,25 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             Config flow result.
 
         """
-        errors = {}
-        user_step_data = self._user_step_data
+        errors: dict[str, str] = {}
+        description_placeholders: dict[str, str] = {}
+        step_data = self._step_data["user"]
+        
         if user_input is not None:
-            options = user_input.copy()
-
             return self.async_create_entry(
-                title=user_step_data[CONF_NAME], 
-                data=user_step_data,
-                options=options
+                title=step_data[CONF_NAME], 
+                data=step_data,
+                options=user_input,
             )
         
-        gateway_info = await self._gateway_reader.gateway_info()
-        placeholders = {
-            "gateway_type": gateway_info.get("gateway_type", ""),
-        }
+        description_placeholders["gateway_type"] = self._gateway_reader.name
+        storages = await self._gateway_reader.has_storages()
         
         return self.async_show_form(
             step_id="config",
-            data_schema=self._get_step_config_shema(),
+            data_schema=self._generate_shema_config_step(storages),
             errors=errors,
-            description_placeholders=placeholders
+            description_placeholders=description_placeholders
         )
         
     async def async_step_reauth(
@@ -259,10 +312,18 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._reauth_entry = self.hass.config_entries.async_get_entry(
             self.context["entry_id"]
         )
+        
+        if self._reauth_entry is not None:
+            if unique_id := self._reauth_entry.unique_id:
+                await self.async_set_unique_id(
+                    unique_id,
+                    raise_on_progress=False
+                )
+        
         return await self.async_step_user()
     
     @callback
-    def _get_step_user_shema(self):
+    def _generate_shema_user_step(self):
         """Generate schema."""
         schema = {}
         
@@ -275,25 +336,25 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema[vol.Optional(CONF_USERNAME, default=self.username or "envoy")] = str
         schema[vol.Optional(CONF_PASSWORD, default="")] = str
-        schema[vol.Optional(CONF_SERIAL_NUM, default=self.unique_id or "")] = str
-        schema[vol.Optional(CONF_USE_TOKEN_AUTH, default=False)] = bool
+        #schema[vol.Optional(CONF_SERIAL_NUM, default=self.unique_id or "")] = str
+        #schema[vol.Optional(CONF_USE_TOKEN_AUTH, default=False)] = bool
         schema[vol.Optional(CONF_USE_LEGACY_NAME, default=False)] = bool
         return vol.Schema(schema)
     
     @callback
-    def _get_step_config_shema(self):
+    def _generate_shema_config_step(self, storages):
         """Generate schema."""
         schema = {
             vol.Optional(CONF_GET_INVERTERS, default=True): bool,
         }
-        if self._gateway_reader.storages:
+        if storages:
             schema.update(
                 {vol.Optional(CONF_STORAGE_ENTITIES, default=True): bool}
             )
-        if self._gateway_reader.use_token_auth:
-            schema.update(
-                {vol.Optional(CONF_CACHE_TOKEN, default=True): bool}
-            )
+        # if self._gateway_reader.use_token_auth:
+        #     schema.update(
+        #         {vol.Optional(CONF_CACHE_TOKEN, default=True): bool}
+        #     )
         return vol.Schema(schema)
 
     @callback
@@ -312,17 +373,17 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return f"{name} {self.unique_id}"
         return name
     
-    async def _async_set_unique_id_from_gateway(
-            self, 
-            gateway_reader: GatewayReader) -> bool:
-        """Set the unique id by fetching it from the gateway."""
-        serial_num = None
-        with contextlib.suppress(httpx.HTTPError):
-            serial_num = await gateway_reader.get_serial_number()
-        if serial_num:
-            await self.async_set_unique_id(serial_num)
-            return True
-        return False
+    # async def _async_set_unique_id_from_gateway(
+    #         self, 
+    #         gateway_reader: GatewayReader) -> bool:
+    #     """Set the unique id by fetching it from the gateway."""
+    #     serial_num = None
+    #     with contextlib.suppress(httpx.HTTPError):
+    #         serial_num = await gateway_reader.get_serial_number()
+    #     if serial_num:
+    #         await self.async_set_unique_id(serial_num)
+    #         return True
+    #     return False
     
     @staticmethod
     @callback
