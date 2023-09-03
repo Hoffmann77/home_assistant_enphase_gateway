@@ -1,19 +1,13 @@
+"""Gateway reader coordinator module."""
 
 from __future__ import annotations
 
-import contextlib
-import datetime
-from datetime import timedelta
 import logging
-from typing import Any
+from datetime import datetime, timedelta
+from typing import Any, TYPE_CHECKING
+
 import httpx
-
-
-
-from typing import TYPE_CHECKING
-
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.event import async_track_time_interval
@@ -24,10 +18,11 @@ import homeassistant.util.dt as dt_util
 
 from .gateway_reader.auth import EnphaseTokenAuth
 from .gateway_reader.exceptions import INVALID_AUTH_ERRORS
-#from .const import CONF_STORAGE_ENTITIES, SENSORS, ENCHARGE_SENSORS
+
 
 if TYPE_CHECKING:
     from .gateway_reader import GatewayReader
+
 
 SCAN_INTERVAL = timedelta(seconds=60)
 
@@ -36,7 +31,6 @@ STORAGE_VERSION = 1
 
 TOKEN_REFRESH_CHECK_INTERVAL = timedelta(days=1)
 STALE_TOKEN_THRESHOLD = timedelta(days=3).total_seconds()
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -95,7 +89,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
         await self._async_update_cached_token()
           
     @callback
-    def _async_refresh_token_if_needed(self, now: datetime.datetime) -> None:
+    def _async_refresh_token_if_needed(self, now: datetime) -> None:
         """Proactively refresh token if its stale in case cloud services goes down."""
         if not isinstance(self.gateway_reader.auth, EnphaseTokenAuth):
             return
@@ -204,109 +198,3 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
                 
         #raise RuntimeError("Unreachable code in _async_update_data")  # pragma: no cover
         
-        # data = {}
-            
-        # for description in SENSORS:
-            
-        #     # Inverters production data
-        #     if description.key == "inverters":
-        #         _prod = await gateway_reader.get("inverters_production")
-        #         if _prod:
-        #             data["inverters_production"] = _prod
-                    
-        #     # Battery storage data
-        #     elif description.key == "batteries":
-        #         storages = await gateway_reader.get("battery_storage")
-        #         if not isinstance(storages, dict) and len(storages) == 0:
-        #             continue
-        #         data[description.key] = storages
-        #         for uid in storages.keys():
-        #             if uid.startswith("encharge"):
-        #                 power = await gateway_reader.get("ensemble_power")
-        #                 if power:
-        #                     data["ensemble_power"] = power
-                    
-        #     # Total battery storage data
-        #     elif description.key in {
-        #             "current_battery_capacity",
-        #             "total_battery_percentage"
-        #     }:
-        #         if not data.get("ensemble_secctrl"):
-        #             _secctrl = await gateway_reader.get("ensemble_secctrl")
-        #             if _secctrl:
-        #                 data["ensemble_secctrl"] = _secctrl  
-        #         else:
-        #             continue
-            
-        #     elif description.key in {"total_battery_power",}:
-        #         continue
-            
-            
-        #     # All other sensor data
-        #     else:
-        #         _data = await gateway_reader.get(description.key)
-        #         if _data and not isinstance(_data, str):
-        #                 data[description.key] = _data
-                
-        # # Encharge battery storage data
-        # if ENCHARGE_SENSORS and self.entry.options.get(CONF_STORAGE_ENTITIES, True):
-        #     storages = await gateway_reader.get("battery_storage")
-        #     ensemble_power = await gateway_reader.get("ensemble_power")
-        #     if isinstance(storages, dict) and len(storages) > 0:
-        #         _storages = {}
-        #         for uid, storage in storages.items():
-        #             if uid.startswith("encharge"):
-        #                 if ensemble_power:
-        #                     serial_num = storage["serial_num"]
-        #                     _storages[serial_num] = storage
-        #                     _power = {item["serial_num"]: item for item in ensemble_power}
-                            
-                            
-        #                     if power := _power.get(serial_num):
-        #                         _storages[serial_num].update(power)
-                        
-        #         data["encharge"] = _storages
-                
-        #         # for key in storages.keys():
-        #         #     if ensemble_power:
-        #         #         if power := ensemble_power.get(key):
-        #         #             storages[key].update(power)
-                 
-        #         # data["encharge"] = storages
-
-        # #data["grid_status"] = gateway_reader.grid_status#()
-        # #data["gateway_info"] = gateway_reader.gateway_info#()
-
-        # _LOGGER.debug("Retrieved data from API: %s", data)
-
-        # return data
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    

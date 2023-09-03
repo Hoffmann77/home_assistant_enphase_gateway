@@ -6,3 +6,8 @@ import time
 #import jwt
 
 
+x = 1
+
+
+if x:
+    print("test")

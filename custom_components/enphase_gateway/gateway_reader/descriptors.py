@@ -19,13 +19,9 @@ class BaseDescriptor:
         """Initialize BaseDescriptor."""
         self._required_endpoint = required_endpoint
         self._cache = cache
-        self._name = None
-        self._owner = None
-        
-    def __set_name__(self, owner, name) -> None:
-        """Set name and owner of the descriptor."""
-        self._name=name
-        self._owner=owner
+        #self._name = None
+        #self._owner = None
+     
         
     def _register_property(self):
         """Register required_endpoint if required_endpoint is not None.
@@ -33,10 +29,27 @@ class BaseDescriptor:
         Add required_endpoint to self._owner._gateway_properties
         
         """
+        _LOGGER.debug(f"register_property: {self._name}")
         if self._owner and self._name and self._required_endpoint:
             _endpoint = GatewayEndpoint(self._required_endpoint, self._cache)
             self._owner._gateway_properties[self._name] = _endpoint
-
+            #self._owner.register_property(_endpoint, self._name) 
+        
+     
+    def __set_name__(self, owner, name) -> None:
+        """Set name and owner of the descriptor."""
+        #self._name=name
+        #self._owner=owner
+        _LOGGER.debug(f"set_name: {name}")
+        #self._register_property()
+        
+        if owner and name and self._required_endpoint:
+            _endpoint = GatewayEndpoint(self._required_endpoint, self._cache)
+            owner._gateway_properties[name] = _endpoint
+        
+        
+        
+    
 
 class JsonDescriptor(BaseDescriptor):
     """JasonPath gateway property descriptor."""
@@ -49,7 +62,7 @@ class JsonDescriptor(BaseDescriptor):
     ) -> None:
         super().__init__(required_endpoint, cache)
         self.jsonpath_expr = jsonpath_expr
-        self._register_property()
+        #self._register_property()
     
     def __get__(self, obj, objtype=None):
         """Magic method. Resolve the jasonpath expression."""
@@ -78,7 +91,9 @@ class JsonDescriptor(BaseDescriptor):
             DESCRIPTION.
 
         """
-        _LOGGER.debug(f"Resolving jsonpath: {path} using data: {data.keys()}")
+        _LOGGER.debug(f"Resolving jsonpath: {path} using data: {data}")
+        if path == "":
+            return data
         result = jsonpath(data, dedent(path))
         if result == False:
             _LOGGER.debug(
@@ -99,7 +114,7 @@ class RegexDescriptor(BaseDescriptor):
     def __init__(self, required_endpoint, regex, cache: int = 0):
         super().__init__(required_endpoint, cache)
         self.regex = regex
-        self._register_property()
+        #self._register_property()
 
     def __get__(self, obj, objtype=None):
         """Magic method. Resolve the regex expression."""

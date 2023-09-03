@@ -175,19 +175,19 @@ class GatewayReader:
         """
         if self.firmware_version < LEGACY_ENVOY_VERSION:
             self.gateway_type = "ENVOY_MODEL_LEGACY"
-            self.gateway = EnvoyLegacy(self)
+            self.gateway = EnvoyLegacy()
             
         elif self._info.imeter and self._info.imeter == "true":
             self.gateway_type = "ENVOY_MODEL_S_METERED"
-            self.gateway = EnvoySMetered(self)
+            self.gateway = EnvoySMetered()
         
         elif self._info.imeter and self._info.imeter == "false":
             self.gateway_type = "ENVOY_MODEL_S_STANDARD"
-            self.gateway = EnvoyS(self)
+            self.gateway = EnvoyS()
         
         else:
             self.gateway_type = "ENVOY_MODEL_R"
-            self.gateway = Envoy(self)
+            self.gateway = Envoy()
         
     def _get_async_client(self) -> httpx.AsyncClient:
         """Return default httpx client."""

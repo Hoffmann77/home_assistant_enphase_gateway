@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import EntityDescription
-from homeassistant.components.bianry_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.components.sensor import SensorEntity
 
 from .coordinator import GatewayReaderUpdateCoordinator

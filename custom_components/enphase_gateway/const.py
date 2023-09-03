@@ -17,7 +17,7 @@ AVAILABLE_PROPERTIES = {
     "lifetime_production", "consumption", "daily_consumption",
     "seven_days_consumption", "lifetime_consumption", "inverters_production",
     "grid_status", "ensemble_power", "ensemble_submod", "ensemble_secctrl", 
-    "battery_storage",
+    "battery_storage", "encharge_inventory", "encharge_power"
 }
 
 CONF_SERIAL_NUM = "serial_num"

@@ -8,18 +8,21 @@ class BaseModel:
     
     def __init__(self, data):
         self.data = data
+        
+    def register_property(x, y):
+        pass
 
 
 class ACBattery(BaseModel):
     """AC battery data."""
     
-    percentFull = JsonDescriptor("percentFull")
+    #percentFull = JsonDescriptor("percentFull")
     
-    wNow = JsonDescriptor("wNow")
+    #wNow = JsonDescriptor("wNow")
     
-    whNow = JsonDescriptor("whNow")
+    #whNow = JsonDescriptor("whNow")
     
-    state = JsonDescriptor("state")
+    #state = JsonDescriptor("state")
     
     
     

@@ -6,15 +6,14 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.helpers.entity import DeviceInfo
-
-from .const import DOMAIN, ICON
-from .coordinator import GatewayReaderUpdateCoordinator
-from .entity import GatewayBinarySensorBaseEntity
-
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntityDescription
 )
+
+from .const import DOMAIN, ICON
+from .coordinator import GatewayReaderUpdateCoordinator
+from .entity import GatewayBinarySensorBaseEntity
 
 
 GRID_STATUS_BINARY_SENSOR = (

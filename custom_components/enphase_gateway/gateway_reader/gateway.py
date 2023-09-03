@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+#GATEWAY_PROPERTIES = {}
+
 
 def gateway_property(_func: Callable | None = None, **kwargs) -> property:
     """Gateway property decorator.
@@ -53,6 +55,7 @@ def gateway_property(_func: Callable | None = None, **kwargs) -> property:
             _endpoint = None
         
         BaseGateway._gateway_properties[func.__name__] = _endpoint
+        #GATEWAY_PROPERTIES[func.__name__] = _endpoint
         return property(func)
     
     if _func == None:
@@ -144,7 +147,8 @@ class BaseGateway:
 
         """
         if self._required_endpoints:
-            return self._required_endpoints
+            return self._required_endpoints.values()
+            
 
         endpoints = {}
 
@@ -157,6 +161,8 @@ class BaseGateway:
             elif endpoint.cache < _endpoint.cache:
                 _endpoint.cache = endpoint.cache
         
+        _LOGGER.debug(f"properties registered: {self._gateway_properties.items()}")
+        #for prop, prop_endpoint in GATEWAY_PROPERTIES.items():
         for prop, prop_endpoint in self._gateway_properties.items():
             if isinstance(prop_endpoint, GatewayEndpoint):
                 
@@ -172,15 +178,21 @@ class BaseGateway:
         if self.initial_update_finished:
             # Save the list in memory, as we should not evaluate this list again.
             # If the list needs re-evaluation, then reload the plugin.
-            self._required_endpoints = endpoints        
+            self._required_endpoints = endpoints    
         
         else:
             for probe, probe_endpoint in self._gateway_probes.items():
                 if isinstance(probe_endpoint, GatewayEndpoint):
                     update_endpoints(probe_endpoint)
                 
-        return endpoints
-
+        return endpoints.values()
+    
+    # def register_property(endpoint, name):
+    #     GATEWAY_PROPERTIES[name] = endpoint
+        
+        
+    
+    
     def set_endpoint_data(
             self, 
             endpoint: GatewayEndpoint,
@@ -221,10 +233,15 @@ class BaseGateway:
 
     def __getattribute__(self, name):
         """Return None if gateway does not support this property."""
-        if name in AVAILABLE_PROPERTIES:
-            return None
+        try:
+            value = object.__getattribute__(self, name)
+        except AttributeError as err:
+            if name in AVAILABLE_PROPERTIES:
+                return None
+            else:
+                raise err
         else:
-            object.__getattribute__(self, name)
+            return value
         
     def get(self, attr: str, default=None):
         """Get the given attribute.
@@ -306,11 +323,11 @@ class EnvoyS(Envoy):
     
     VERBOSE_NAME = "Envoy-S Standard"
     
-    ensemble_inventory = JsonDescriptor("$", "ivp/ensemble/inventory")
+    ensemble_inventory = JsonDescriptor("", "ivp/ensemble/inventory")
     
-    ensemble_submod = JsonDescriptor("$", "ivp/ensemble/submod")
+    ensemble_submod = JsonDescriptor("", "ivp/ensemble/submod")
     
-    ensemble_secctrl = JsonDescriptor("$", "ivp/ensemble/secctrl")
+    ensemble_secctrl = JsonDescriptor("", "ivp/ensemble/secctrl")
     
     ensemble_power = JsonDescriptor("devices:", "ivp/ensemble/power")
     
@@ -342,7 +359,7 @@ class EnvoyS(Envoy):
         """
         data = self.data.get("ivp/ensemble/inventory", {})
         result = JsonDescriptor.resolve(
-            "[?(@.type=='ENCHARGE')].devices", 
+            "$.[?(@.type=='ENCHARGE')].devices", 
             data,
         )
         if result:
@@ -359,7 +376,7 @@ class EnvoyS(Envoy):
         """
         data = self.data.get("ivp/ensemble/power", {})
         result = JsonDescriptor.resolve("devices:", data)
-        if result and type(result, list):
+        if result and isinstance(result, list):
             return {device["serial_num"]: device for device in result}
         
         return None        

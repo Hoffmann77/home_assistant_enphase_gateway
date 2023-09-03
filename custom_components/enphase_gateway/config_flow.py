@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import contextlib
 from typing import Any
 
 import httpx
@@ -21,9 +20,8 @@ from .exceptions import (
     EnlightenUnauthorized, InvalidEnphaseToken
 )
 from .const import (
-    DOMAIN, CONF_SERIAL_NUM, CONF_USE_TOKEN_AUTH, CONF_TOKEN_RAW,
-    CONF_CACHE_TOKEN, CONF_GET_INVERTERS, CONF_USE_LEGACY_NAME,
-    CONF_STORAGE_ENTITIES
+    DOMAIN, CONF_SERIAL_NUM, CONF_CACHE_TOKEN, CONF_GET_INVERTERS, 
+    CONF_USE_LEGACY_NAME, CONF_STORAGE_ENTITIES
 )
 
 
@@ -190,9 +188,6 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not self._reauth_entry and host in self._get_current_hosts():
                 return self.async_abort(reason="already_configured")
             
-            
-            
-            
             try:
                 gateway_reader = await validate_input(
                     self.hass, 
@@ -213,10 +208,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 self._gateway_reader = gateway_reader
-                
                 name = self._generate_name(use_legacy_name)
-                #data = user_input.copy()
-                #data[CONF_NAME] = self._generate_name(use_legacy_name)
                 
                 if self._reauth_entry:
                     self.hass.config_entries.async_update_entry(
@@ -284,11 +276,10 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
         
         description_placeholders["gateway_type"] = self._gateway_reader.name
-        storages = await self._gateway_reader.has_storages()
         
         return self.async_show_form(
             step_id="config",
-            data_schema=self._generate_shema_config_step(storages),
+            data_schema=self._generate_shema_config_step(),
             errors=errors,
             description_placeholders=description_placeholders
         )
@@ -336,25 +327,19 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema[vol.Optional(CONF_USERNAME, default=self.username or "envoy")] = str
         schema[vol.Optional(CONF_PASSWORD, default="")] = str
-        #schema[vol.Optional(CONF_SERIAL_NUM, default=self.unique_id or "")] = str
-        #schema[vol.Optional(CONF_USE_TOKEN_AUTH, default=False)] = bool
         schema[vol.Optional(CONF_USE_LEGACY_NAME, default=False)] = bool
         return vol.Schema(schema)
     
     @callback
-    def _generate_shema_config_step(self, storages):
+    def _generate_shema_config_step(self):
         """Generate schema."""
         schema = {
             vol.Optional(CONF_GET_INVERTERS, default=True): bool,
         }
-        if storages:
+        if self._gateway_reader.gateway.encharge_inventory:
             schema.update(
                 {vol.Optional(CONF_STORAGE_ENTITIES, default=True): bool}
             )
-        # if self._gateway_reader.use_token_auth:
-        #     schema.update(
-        #         {vol.Optional(CONF_CACHE_TOKEN, default=True): bool}
-        #     )
         return vol.Schema(schema)
 
     @callback
