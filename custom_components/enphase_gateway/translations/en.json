@@ -28,7 +28,7 @@
         "title": "{gateway_type} Configuration",
         "data": {
           "get_inverters": "Enable single Inverter entities (Production values for every single Inverter)",
-          "storage_entities": "Enable detailed battery Entities",
+          "encharge_entities": "Enable detailed Entities for ENCHARGE batteries",
           "cache_token": "Cache the Enphase Token"
         }
       }
