@@ -21,7 +21,7 @@ from .exceptions import (
 )
 from .const import (
     DOMAIN, CONF_SERIAL_NUM, CONF_CACHE_TOKEN, CONF_GET_INVERTERS, 
-    CONF_USE_LEGACY_NAME, CONF_STORAGE_ENTITIES
+    CONF_USE_LEGACY_NAME, CONF_ENCHARGE_ENTITIES
 )
 
 
@@ -338,7 +338,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         }
         if self._gateway_reader.gateway.encharge_inventory:
             schema.update(
-                {vol.Optional(CONF_STORAGE_ENTITIES, default=True): bool}
+                {vol.Optional(CONF_ENCHARGE_ENTITIES, default=True): bool}
             )
         return vol.Schema(schema)
 
@@ -409,11 +409,11 @@ class GatewayOptionsFlow(config_entries.OptionsFlow):
                 default=options.get(CONF_GET_INVERTERS, True)
             ): bool,   
         }
-        if CONF_STORAGE_ENTITIES in options_keys:
+        if CONF_ENCHARGE_ENTITIES in options_keys:
             schema.update({
                 vol.Optional(
-                    CONF_STORAGE_ENTITIES,
-                    default=options.get(CONF_STORAGE_ENTITIES)
+                    CONF_ENCHARGE_ENTITIES,
+                    default=options.get(CONF_ENCHARGE_ENTITIES)
                 ): bool,
             })
         if CONF_CACHE_TOKEN in options_keys:

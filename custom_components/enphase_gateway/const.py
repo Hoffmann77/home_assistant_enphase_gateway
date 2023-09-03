@@ -27,7 +27,7 @@ CONF_CACHE_TOKEN = "cache_token"
 CONF_EXPOSE_TOKEN = "expose_token"
 CONF_EXPOSURE_PATH = "exposure_path"
 CONF_GET_INVERTERS = "get_inverters"
-CONF_STORAGE_ENTITIES = "storage_entities"
+CONF_ENCHARGE_ENTITIES = "storage_entities"
 CONF_USE_LEGACY_NAME = "use_lagacy_name"
 
 

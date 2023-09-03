@@ -11,8 +11,7 @@ from homeassistant.helpers.httpx_client import get_async_client
 from .gateway_reader import GatewayReader
 from .coordinator import GatewayReaderUpdateCoordinator
 from .const import ( 
-    DOMAIN, PLATFORMS, CONF_GET_INVERTERS, CONF_CACHE_TOKEN, 
-    CONF_STORAGE_ENTITIES,
+    DOMAIN, PLATFORMS, CONF_GET_INVERTERS, CONF_ENCHARGE_ENTITIES,
 )
 
 
@@ -64,8 +63,7 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
         
         options = {
             CONF_GET_INVERTERS: True,
-            CONF_STORAGE_ENTITIES: True,
-            CONF_CACHE_TOKEN: True,
+            CONF_ENCHARGE_ENTITIES: True,
         }
         
         config_entry.version = 2
