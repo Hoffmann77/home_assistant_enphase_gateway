@@ -2,6 +2,13 @@
 
 from homeassistant.const import Platform
 
+from .gateway_reader.exceptions import (
+    EnlightenAuthenticationError,
+    EnlightenCommunicationError,
+    GatewayAuthenticationError,
+    GatewayCommunicationError,
+)
+
 
 DOMAIN = "enphase_gateway"
 
@@ -10,13 +17,21 @@ PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
 ICON = "mdi:flash"
 
 COORDINATOR = "coordinator"
+
 NAME = "name"
+
+CONFIG_FLOW_USER_ERROR = (
+    EnlightenAuthenticationError,
+    EnlightenCommunicationError,
+    GatewayAuthenticationError,
+    GatewayCommunicationError,
+)
 
 AVAILABLE_PROPERTIES = {
     "production", "daily_production", "seven_days_production",
     "lifetime_production", "consumption", "daily_consumption",
     "seven_days_consumption", "lifetime_consumption", "inverters_production",
-    "grid_status", "ensemble_power", "ensemble_submod", "ensemble_secctrl", 
+    "grid_status", "ensemble_power", "ensemble_submod", "ensemble_secctrl",
     "battery_storage", "encharge_inventory", "encharge_power"
 }
 

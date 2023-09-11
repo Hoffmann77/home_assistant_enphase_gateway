@@ -1,4 +1,4 @@
-"""Enphase(R) Gateway data descriptor classes."""
+"""Enphase(R) Gateway data descriptor module."""
 
 import re
 import logging
@@ -14,46 +14,31 @@ _LOGGER = logging.getLogger(__name__)
 
 class BaseDescriptor:
     """Base descriptor."""
-    
+
     def __init__(self, required_endpoint: str, cache: int) -> None:
         """Initialize BaseDescriptor."""
         self._required_endpoint = required_endpoint
         self._cache = cache
-        #self._name = None
-        #self._owner = None
-     
-        
-    def _register_property(self):
-        """Register required_endpoint if required_endpoint is not None.
-        
-        Add required_endpoint to self._owner._gateway_properties
-        
-        """
-        _LOGGER.debug(f"register_property: {self._name}")
-        if self._owner and self._name and self._required_endpoint:
-            _endpoint = GatewayEndpoint(self._required_endpoint, self._cache)
-            self._owner._gateway_properties[self._name] = _endpoint
-            #self._owner.register_property(_endpoint, self._name) 
-        
-     
+
     def __set_name__(self, owner, name) -> None:
         """Set name and owner of the descriptor."""
-        #self._name=name
-        #self._owner=owner
-        _LOGGER.debug(f"set_name: {name}")
-        #self._register_property()
-        
         if owner and name and self._required_endpoint:
             _endpoint = GatewayEndpoint(self._required_endpoint, self._cache)
             owner._gateway_properties[name] = _endpoint
-        
-        
-        
-    
+
+
+class ResponseDescriptor(BaseDescriptor):
+    """Descriptor returning the raw response."""
+
+    def __get__(self, obj, objtype):
+        """Magic method. Return the response data."""
+        data = obj.data.get(self._required_endpoint, {})
+        return data
+
 
 class JsonDescriptor(BaseDescriptor):
     """JasonPath gateway property descriptor."""
-    
+
     def __init__(
             self,
             jsonpath_expr: str,
@@ -62,8 +47,7 @@ class JsonDescriptor(BaseDescriptor):
     ) -> None:
         super().__init__(required_endpoint, cache)
         self.jsonpath_expr = jsonpath_expr
-        #self._register_property()
-    
+
     def __get__(self, obj, objtype=None):
         """Magic method. Resolve the jasonpath expression."""
         if self._required_endpoint:
@@ -74,28 +58,12 @@ class JsonDescriptor(BaseDescriptor):
 
     @classmethod
     def resolve(cls, path: str, data: dict, default: str | int | float = None):
-        """Classmethod to resolve a given JsonPath.
-        
-        Parameters
-        ----------
-        path : str
-            Jasonpath expression.
-        data : dict
-            Dict containing the enpoint results.
-        default : str or int or float, optional
-            Default return value. The default is None.
-
-        Returns
-        -------
-        TYPE
-            DESCRIPTION.
-
-        """
+        """Classmethod to resolve a given JsonPath."""
         _LOGGER.debug(f"Resolving jsonpath: {path} using data: {data}")
         if path == "":
             return data
         result = jsonpath(data, dedent(path))
-        if result == False:
+        if result is False:
             _LOGGER.debug(
                 f"The configured jsonpath: {path}, did not return anything!"
             )
@@ -103,18 +71,17 @@ class JsonDescriptor(BaseDescriptor):
 
         if isinstance(result, list) and len(result) == 1:
             result = result[0]
-        
-        _LOGGER.debug(f"Success resolving jsonpath: {path} result: {result}")
-        return result    
+
+        _LOGGER.debug(f"The configured jsonpath: {path}, did return {result}")
+        return result
 
 
 class RegexDescriptor(BaseDescriptor):
     """Regex gateway property descriptor."""
-    
+
     def __init__(self, required_endpoint, regex, cache: int = 0):
         super().__init__(required_endpoint, cache)
         self.regex = regex
-        #self._register_property()
 
     def __get__(self, obj, objtype=None):
         """Magic method. Resolve the regex expression."""
@@ -129,16 +96,15 @@ class RegexDescriptor(BaseDescriptor):
         if match:
             if match.group(2) in {"kW", "kWh"}:
                 result = float(match.group(1)) * 1000
+            elif match.group(2) in {"mW", "MWh"}:
+                result = float(match.group(1)) * 1000000
             else:
-                if match.group(2) in {"mW", "MWh"}:
-                    result = float(match.group(1)) * 1000000
-                else:
-                    result = float(match.group(1))
+                result = float(match.group(1))
         else:
             _LOGGER.debug(
                 f"The configured REGEX: {regex}, did not return anything!"
             )
             return None
-        
-        return result
 
+        f"The configured REGEX: {regex}, did return {result}"
+        return result

@@ -93,7 +93,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
         """Proactively refresh token if its stale in case cloud services goes down."""
         if not isinstance(self.gateway_reader.auth, EnphaseTokenAuth):
             return
-        if self.gateway_reader.auth.is_expired:
+        if self.gateway_reader.auth.is_stale:
             self.hass.async_create_background_task(
                 self._async_try_refresh_token(),
                 "{self.name} token refresh"
@@ -105,9 +105,9 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
             return
         _LOGGER.debug("%s: Trying to refresh token", self.name)
         try:
-            await self.gateway_reader.auth.refresh()
+            await self.gateway_reader.auth.refresh_token()
         except:# EnvoyError as err:
-            _LOGGER.debug("%s: Error refreshing token", self.name)
+            _LOGGER.debug(f"{self.name}: Error refreshing token")
             return
         else:
             self._async_update_cached_token()
@@ -126,7 +126,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
             self._async_refresh_token_if_needed,
             TOKEN_REFRESH_CHECK_INTERVAL,
             cancel_on_shutdown=True,
-        )    
+        )
     
     async def _async_load_cached_token(self) -> str:
         await self._async_sync_store(load=True)

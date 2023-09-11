@@ -1,4 +1,4 @@
-
+"""constants module."""
 
 from awesomeversion import AwesomeVersion
 
@@ -9,6 +9,6 @@ AVAILABLE_PROPERTIES = {
     "production", "daily_production", "seven_days_production",
     "lifetime_production", "consumption", "daily_consumption",
     "seven_days_consumption", "lifetime_consumption", "inverters_production",
-    "grid_status", "ensemble_power", "ensemble_submod", "ensemble_secctrl", 
+    "grid_status", "ensemble_power", "ensemble_submod", "ensemble_secctrl",
     "battery_storage",
 }

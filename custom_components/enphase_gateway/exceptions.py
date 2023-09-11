@@ -1,8 +1,17 @@
-"""Module for custom exceptions."""
+"""Module for custom home-assistant exceptions."""
 
 import httpx
 
 from homeassistant.exceptions import HomeAssistantError
+
+
+def create_hass_exception(input_exception):
+    
+    name = input_exception.__class__.__name__
+    
+    return type(name, (HomeAssistantError,))
+
+
 
 
 class CannotConnect(HomeAssistantError):

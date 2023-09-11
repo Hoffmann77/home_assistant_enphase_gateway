@@ -1,4 +1,4 @@
-"""Enphase Gateway authentication methods."""
+"""Enphase Gateway authentication module."""
 
 import json
 import logging
@@ -12,8 +12,14 @@ import orjson
 from bs4 import BeautifulSoup
 
 from .http import async_get, async_post
-from .exceptions import EnlightenUnauthorized, TokenAuthConfigError
-
+from .exceptions import (
+    EnlightenAuthenticationError,
+    EnlightenCommunicationError,
+    GatewayAuthenticationError,
+    InvalidTokenError,
+    TokenAuthConfigError,
+    TokenRetrievalError,
+)
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,18 +29,19 @@ BASE_DIR = Path(__file__).resolve().parent
 
 class GatewayAuth:
     """Base class for gateway authentication."""
-    
+
     def __init__(self) -> None:
+        """Initialize gateway authentication class."""
         pass
-    
+
     @abstractmethod
     async def prepare(self, client: httpx.AsyncClient) -> None:
-        """Prepare for authentication."""
-    
+        """Prepare the authentication class for authentication."""
+
     @abstractproperty
     def protocol(self) -> str:
         """Return the http protocol."""
-    
+
     @abstractproperty
     def auth(self) -> httpx.DigestAuth | None:
         """Return the httpx auth object."""
@@ -50,56 +57,57 @@ class GatewayAuth:
     @abstractmethod
     def get_endpoint_url(self, endpoint: str) -> str:
         """Return the URL for the endpoint."""
-    
+
 
 class LegacyAuth(GatewayAuth):
     """Class for legacy authentication using username and password."""
-    
+
     def __init__(self, host: str, username: str, password: str) -> None:
-        self.host = host
-        self.username = username
-        self.password = password
-    
+        self._host = host
+        self._username = username
+        self._password = password
+
     @property
     def protocol(self) -> str:
         """Return http protocol."""
         return "http"
-    
+
     @property
     def auth(self) -> httpx.DigestAuth:
         """Return httpx authentication."""
-        if not self.local_username or not self.local_password:
+        if not self._username or not self._password:
             return None
-        return httpx.DigestAuth(self.local_username, self.local_password)
-    
+        return httpx.DigestAuth(self._username, self._password)
+
     @property
     def headers(self) -> dict[str, str]:
         """Return the headers for legacy authentication."""
         return {}
-    
+
     @property
     def cookies(self) -> dict[str, str]:
         """Return the cookies for legacy authentication."""
         return {}
-    
+
     async def prepare(self, client: httpx.AsyncClient) -> None:
         """Set up authentication method."""
-        pass # No setup required
-    
+        pass  # No setup required
+
+    async def resolve_401(self, async_client):
+        """Resolve a 401 Unauthorized response."""
+        pass
+
     def get_endpoint_url(self, endpoint: str) -> str:
         """Return the URL for the endpoint."""
-        return f"http://{self.host}{endpoint}"
-    
-    
+        return f"http://{self._host}{endpoint}"
+
+
 class EnphaseTokenAuth(GatewayAuth):
     """Class for Enphase Token authentication."""
-    
-    STALE_TOKEN_THRESHOLD = timedelta(days=30)
-    
-    ENDPOINT_URL_CHECK_JWT = "https://{}/auth/check_jwt"
+
     LOGIN_URL = "https://enlighten.enphaseenergy.com/login/login.json?"
     TOKEN_URL = "https://entrez.enphaseenergy.com/tokens"
-    
+
     def __init__(
             self,
             host: str,
@@ -108,33 +116,37 @@ class EnphaseTokenAuth(GatewayAuth):
             gateway_serial_num: str | None = None,
             token_raw: str | None = None,
             cache_token: bool = False,
-            cache_path: str | None = None,
+            cache_filepath: str | None = "token.json",
             auto_renewal: bool = True,
+            stale_token_threshold: timedelta = timedelta(days=30)
     ) -> None:
-        """Initialize EnphaseToken."""
-        self.host = host
-        self.enlighten_username = enlighten_username
-        self.enlighten_password = enlighten_password
-        self.gateway_serial_num = gateway_serial_num
-        self._cache_token = cache_token if not token_raw else False
+        """Initialize EnphaseTokenAuth."""
+        self._host = host
+        self._enlighten_username = enlighten_username
+        self._enlighten_password = enlighten_password
+        self._gateway_serial_num = gateway_serial_num
         self._token = token_raw
+        self._cache_token = cache_token
+        self._cache_filepath = cache_filepath
+        self._stale_token_threshold = stale_token_threshold
+        self._enlighten_credentials = False
         self._cookies = None
-        
-        if self._cache_token:
-            if cache_path:
-                self._cache_path = Path(cache_path).resolve()
-            else:
-                self._cache_path = BASE_DIR.joinpath("token.json")
-            
-        if (enlighten_username and enlighten_password and gateway_serial_num):
+
+        if self._cache_filepath:
+            self._cache_filepath = Path(self._cache_filepath).resolve()
+
+        if enlighten_username and enlighten_password and gateway_serial_num:
+            self._enlighten_credentials = True
             self._auto_renewal = auto_renewal
-        elif token_raw:
-            self._auto_renewal = False
-        else:
+        elif not token_raw:
             raise TokenAuthConfigError(
-                "Invalid combination of arguments provided. "
-                + "Please provide Enlighten credentials or an Enphase token." 
+                "Invalid combination of optional arguments. "
+                + "Please provide the arguments 'enlighten_username', "
+                + "'enlighten_password' and 'gateway_serial_num' or "
+                + "the argument 'token_raw'."
             )
+        else:
+            self._auto_renewal = False
 
     @property
     def protocol(self) -> str:
@@ -144,242 +156,274 @@ class EnphaseTokenAuth(GatewayAuth):
     @property
     def auth(self) -> None:
         """Return httpx authentication."""
-        return None # No auth required for token authentication
-    
+        return None  # No auth required for token authentication
+
     @property
-    def token(self) -> str:
+    def token(self) -> str | None:
         """Return the Enphase token."""
         return self._token
-    
+
+    @property
+    def headers(self) -> None:
+        """Return the headers for token authentication."""
+        return {"Authorization": f"Bearer {self.token}"}
+
+    @property
+    def cookies(self) -> dict[str, str]:
+        """Return the cookies for token authentication."""
+        return self._cookies
+
     @property
     def expiration_date(self) -> datetime:
         """Return the expiration date of the Enphase token."""
-        payload = self._decode_token()
+        payload = self._decode_token(self._token)
         return datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
 
     @property
     def is_expired(self) -> bool:
         """Return the expiration status of the Enphase token."""
-        exp_time = self.expiration_date - self.STALE_TOKEN_THRESHOLD
-        if datetime.now(tz=timezone.utc) <= exp_time:
-            _LOGGER.debug(f"Token expires at: {exp_time} UTC")
+        if datetime.now(tz=timezone.utc) <= self.expiration_date:
             return False
-        else:
-            _LOGGER.debug(f"Token expired on: {exp_time} UTC")
-            return True
-    
+        return True
+
     @property
-    def headers(self) -> None:
-        """Return the headers for token authentication."""
-        return {"Authorization": f"Bearer {self.token}"}
-    
-    @property
-    def cookies(self) -> dict[str, str]:
-        """Return the cookies for token authentication."""
-        return self._cookies 
-    
+    def is_stale(self) -> bool:
+        """Return whether the token is about to expire."""
+        exp_time = self.expiration_date - self._stale_token_threshold
+        if datetime.now(tz=timezone.utc) <= exp_time:
+            return False
+        return True
+
     def get_endpoint_url(self, endpoint: str) -> str:
         """Return the URL for the endpoint."""
-        return f"https://{self.host}{endpoint}"
-    
-    async def prepare(self, client: httpx.AsyncClient) -> None:
-        """Set up token for token authentication."""
+        return f"https://{self._host}{endpoint}"
+
+    async def prepare(self, async_client: httpx.AsyncClient) -> None:
+        """Prepare class for token authentication."""
+        _LOGGER.debug("Preparing authentication method: EnphaseTokenAuth")
+
         if not self._token:
-            if self._cache_token:
-                # load token from cache
-                pass
+            await self._setup_token(async_client)
+
+        if self.is_stale:
+            if self._auto_renewal:
+                try:
+                    _LOGGER.debug("Stale token - trying to refresh token")
+                    await self.refresh_token()
+                except httpx.TransportError as err:
+                    if self.is_expired:
+                        raise err
+                    else:
+                        _LOGGER.debug("Error refreshing stale token: {err}")
+                        pass
+
             else:
-                await self.refresh()
-    
-        else:
-            _LOGGER.debug(f"Token is populated: {self.token}")
-            if self.is_expired:
-                if self._auto_renewal:
-                    _LOGGER.debug("Found Expired token - Retrieving new token")
-                    await self.refresh()
-                else:
-                    _LOGGER.debug(
-                        """Found Expired token. 
-                        Please renew the token or enable token auto renewal 
-                        and provide the necessary credentials required for 
-                        automatic token renewal"""
-                    )
-            elif not self.cookies:
-                await self.refresh_cookies()
-    
-    async def refresh(self) -> None:
+                _LOGGER.warning(
+                    "The Enphase token you provided is about to expire. "
+                    + "Please provide a new token."
+                )
+
+        if not self.cookies:
+            await self.refresh_cookies(async_client)
+
+    async def refresh_token(self) -> None:
         """Refresh the Enphase token."""
-        _LOGGER.debug("Refreshing Enphase token")
-        
-        if not self.enlighten_username or not self.enlighten_password:
-            pass
-        
-        if not self.gateway_serial_num:
-            pass
-        
+        if not self._enlighten_credentials:
+            raise TokenAuthConfigError(
+                "Missing enlighten credentials for token retrieval."
+            )
+
         self._token = await self._fetch_enphase_token()
-        _LOGGER.debug(f"New Enphase token valid until: {self.expiration_date}")
-        # TODO: Add logic if token could not be retrieved
+        self._cookies = None
+        _LOGGER.debug(f"New token valid until: {self.expiration_date}")
+
+    async def refresh_cookies(self, async_client: httpx.AsyncClient) -> None:
+        """Try to refresh the cookies."""
+        cookies = await self._check_jwt(async_client, self._token)
+        if cookies is not None:
+            self._cookies = cookies
+
+    async def resolve_401(self, async_client) -> bool:
+        """Resolve 401 Unauthorized response."""
         try:
-            _cookies = await self._check_jwt()
-        except httpx.HTTPError:
-            pass
-        else:
-            if _cookies:
-                self._cookies = _cookies
-                await self._token_refreshed()
-    
-    async def refresh_cookies(self) -> bool:
-        """Refresh the cookies."""
-        try:
-            cookies = await self._check_jwt()
-        except httpx.HTTPError:
+            self.refresh_cookies(async_client)
+        except httpx.TransportError:
             return False
-        else:
-            if cookies:
+        except InvalidTokenError:
+            self._token = None
+            self._cookies = None
+            self.prepare(async_client)
+            return True
+
+    async def _setup_token(self, async_client: httpx.AsyncClient) -> None:
+        """Set up the initial Enphase token."""
+        if self._cache_token:
+            token = await self._load_token_from_cache()
+            cookies = self._check_jwt(async_client, token, fail_silent=True)
+            if token and cookies:
+                self._token = token
                 self._cookies = cookies
-                return True
+
+        if not self._token:
+            try:
+                token = await self._fetch_enphase_token()
+            except httpx.TransportError as err:
+                raise err
+            except httpx.HTTPError as err:
+                raise TokenRetrievalError(
+                    "Could not retrieve a new token from Enlighten"
+                ) from err
             else:
-                return False
-        
+                self._token = token
+
+        if not self._token:
+            raise GatewayAuthenticationError(
+                "Could not obtain a token for token authentication"
+            )
+
+    def _decode_token(self, token: str) -> dict:
+        """Decode the given JWT token."""
+        try:
+            jwt_payload = jwt.decode(
+                token,
+                algorithms=["ES256"],
+                options={"verify_signature": False},
+            )
+        except jwt.exceptions.InvalidTokenError as err:
+            _LOGGER.debug(f"Error decoding JWT token: {token[:6]}, {err}")
+            raise err
+        else:
+            return jwt_payload
+
     async def _fetch_enphase_token(self) -> str:
         """Fetch the Enphase token from Enlighten."""
         _LOGGER.debug("Fetching new token from Enlighten.")
         _async_client = httpx.AsyncClient(verify=True, timeout=10.0)
+
         async with _async_client as async_client:
             # retrieve session id from enlighten
             resp = await self._async_post_enlighten(
                 async_client,
                 self.LOGIN_URL,
                 data={
-                    'user[email]': self.enlighten_username, 
-                    'user[password]': self.enlighten_password
+                    'user[email]': self._enlighten_username,
+                    'user[password]': self._enlighten_password
                 }
             )
             response_data = orjson.loads(resp.text)
             self._is_consumer = response_data["is_consumer"]
             self._manager_token = response_data["manager_token"]
-            
+
             # retrieve token from enlighten
             resp = await self._async_post_enlighten(
                 async_client,
                 self.TOKEN_URL,
                 json={
                     'session_id': response_data['session_id'],
-                    'serial_num': self.gateway_serial_num,
-                    'username': self.enlighten_username
+                    'serial_num': self._gateway_serial_num,
+                    'username': self._enlighten_username
                 }
             )
             return resp.text
-    
+
     async def _async_post_enlighten(
         self,
         async_client: httpx.AsyncClient,
         url: str,
         **kwargs
-        ) -> httpx.Response:
-        """Send a HTTP POST request to Enlighten."""
+    ) -> httpx.Response:
+        """Send a HTTP POST request to the Enlighten platform."""
         try:
             resp = await async_post(async_client, url, **kwargs)
-        
+        except httpx.TransportError as err:
+            raise EnlightenCommunicationError(
+                "Error communicating with the Enlighten platform",
+                request=err.request,
+                response=err.response,
+            ) from err
         except httpx.HTTPStatusError as err:
-            status_code = err.response.status_code
-            _LOGGER.debug(
-                f"Received status_code {status_code} from Gateway"
-            )
-            if status_code == 401:
-                raise EnlightenUnauthorized(
-                    "Enlighten unauthorized",
+            if err.response.status_code == 401:
+                raise EnlightenAuthenticationError(
+                    "Invalid Enlighten credentials",
                     request=err.request,
-                    response=err.response
-                )
+                    response=err.response,
+                ) from err
             raise err
-        
         else:
             return resp
-    
-    def _decode_token(self) -> dict:
-        """Decode the JWT Enphase token."""
-        try:
-            jwt_payload = jwt.decode(
-                self._token,
-                algorithms=["ES256"],
-                options={"verify_signature": False},
-            )
-        except jwt.exceptions.InvalidTokenError as err:
-            _LOGGER.debug(f"Decoding of the Enphase token failed: {self._token}")
-            raise err
-        else:
-            return jwt_payload
-    
+
     async def _check_jwt(
-        self,
-        async_client: httpx.AsyncClient | None = None,
-    ) -> httpx.Cookies | None:
-        """Call '/auth/check_jwt' to check if token is valid.
-        
-        Return cookies if the token is valid return None otherwise.
-        
+            self,
+            async_client: httpx.AsyncClient,
+            token: str,
+            fail_silent=False
+    ) -> None:
+        """Check if the jwt token is valid.
+
+        Call auth/check_jwt to get the token validated by the gateway.
+        The endpoint responds:
+            - 200 if the token is in the gateway's token db:
+                - Returns 'Valid token.' html response and cookie 'sessionId'
+                if the token is valid.
+            - 401 if token is not in the gateway's token db.
         """
-        _LOGGER.debug("Calling '/auth/check_jwt' to check token")
-        if not async_client:
-            async_client = httpx.AsyncClient(verify=False, timeout=10.0)
+        _LOGGER.debug("Validating token using the 'auth/check_jwt' endpoint.")
+        if token is None:
+            if fail_silent:
+                return None
+            raise InvalidTokenError(f"Invalid token: {token}")
+
         try:
             resp = await async_get(
                 async_client,
-                f"https://{self.host}/auth/check_jwt",
-                headers = {"Authorization": f"Bearer {self.token}"},
+                f"https://{self._host}/auth/check_jwt",
+                headers={"Authorization": f"Bearer {token}"},
+                retries=1,
             )
-        except httpx.HTTPError as err:
-            _LOGGER.debug(f"Error while checking token: {err}")
+
+        except httpx.HTTPStatusError as err:
+            if resp.status_code == 401:
+                _LOGGER.debug(f"Error while checking token: {err}")
+                if fail_silent:
+                    return None
+                raise InvalidTokenError(f"Invalid token: {token[:6]}") from err
+
+        except httpx.TransportError as err:
+            _LOGGER.debug(f"Transport Error while checking token: {err}")
+            if fail_silent:
+                return None
             raise err
+
         else:
             soup = BeautifulSoup(resp.text, features="html.parser")
             validity = soup.find("h2").contents[0]
             if validity == "Valid token.":
-                _LOGGER.debug("Token is valid")
+                _LOGGER.debug(f"Valid token: {token[:6]}")
                 return resp.cookies
             else:
-                _LOGGER.debug("Token is not valid")
-                return None    
-    
+                _LOGGER.debug(f"Invalid token: {token[:6]}")
+                if fail_silent:
+                    return None
+                raise InvalidTokenError(f"Invalid token: {token[:6]}")
+
     async def _token_refreshed(self):
-        """Cleanup Action for refreshed token."""
+        """Signal for refreshed token."""
         if self._cache_token:
             self._save_token_to_cache(self.token)
- 
-    async def _load_token_from_cache(self):
-        """Return the raw token from the cache.
 
-        Returns
-        -------
-        str or None
-            Returns the raw token or None.
-
-        """
-        if filepath := self._token_cache_filepath.is_file():
+    async def _load_token_from_cache(self) -> str | None:
+        """Return the cached token."""
+        if filepath := self._cache_filepath.is_file():
             with filepath.open() as f:
                 token_json = json.load(f)
-                return token_json.get("EnphaseToken", None)
-        else:
-            _LOGGER.debug("Error while checking Path token_cache_filepath")
-            return None
+            return token_json.get("EnphaseToken")
 
-    async def _save_token_to_cache(self, token_raw):
-        """Save the raw token to the cache.
-        
-        Parameters
-        ----------
-        token_raw : str
-            Enphase token.
+        _LOGGER.debug(f"Error loading token from cache: {self._cache_filepath}")
+        return None
 
-        Returns
-        -------
-        None.
-
-        """
+    async def _save_token_to_cache(self, token_raw: str) -> None:
+        """Add the token to the cache."""
         token_json = {"EnphaseToken": token_raw}
-        filepath = self._token_cache_filepath
+        filepath = self._cache_filepath
         with filepath.open("w+") as f:
             json.dump(token_json, f)
-    

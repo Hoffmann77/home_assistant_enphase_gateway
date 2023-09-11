@@ -9,7 +9,11 @@
       "invalid_auth": "Invalid authentication",
       "invalid_token": "The Token you provided is invalid",
       "enlighten_invalid_auth": "Enlighten credentials invalid",
-      "unknown": "Unexpected error"
+      "enlighten_authentication_error": "Enphase cloud authentication failed. Please verify that the credentials you provided are valid.",
+      "enlighten_communication_error": "Failed to communicate with the Enphase cloud",
+      "gateway_authentication_error": "Gateway authentication failed. Please verify that the credentials you provided are valid.",
+      "gateway_communication_error": "Failed to communicate with the gateway",
+      "unknown": "Unexpected error. See the logs for more details"
     },
     "flow_title": "{serial_num} ({host})",
     "step": {

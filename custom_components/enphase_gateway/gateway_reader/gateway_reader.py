@@ -13,7 +13,7 @@ from .gateway import EnvoyLegacy, Envoy, EnvoyS, EnvoySMetered
 from .const import LEGACY_ENVOY_VERSION
 from .gateway_info import GatewayInfo
 from .auth import LegacyAuth, EnphaseTokenAuth
-from .exceptions import EnvoyAuthenticationRequired
+from .exceptions import GatewayAuthenticationRequired
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,15 +23,15 @@ class GatewayReader:
     """Instance of EnvoyReader."""
 
     MESSAGES = {
-        "daily_production_not_available": 
+        "daily_production_not_available":
             "Daily production data not available for your Envoy device.",
-        "seven_day_production_not_available": 
+        "seven_day_production_not_available":
             "Seven day production data not available for your Envoy device.",
         "battery_not_available":
             "Battery storage data not available for your Envoy device.",
-        "consumption_not_available": 
+        "consumption_not_available":
             "Consumption data not available for your Envoy device.",
-        "grid_status_not_available": 
+        "grid_status_not_available":
             "Grid status not available for your Envoy device.",
     }
 
@@ -59,66 +59,65 @@ class GatewayReader:
         self.gateway_type = None
         self.gateway = None
         self.get_inverters = get_inverters
-    
+
     @property
     def name(self) -> str | None:
         """Return the verbose name of the gateway."""
         if self.gateway:
             return self.gateway.VERBOSE_NAME
         return "Enphase Gateway"
-    
+
     @property
     def serial_number(self) -> str | None:
         """Return the Envoy serial number."""
         return self._info.serial_number
-    
+
     @property
     def part_number(self) -> str | None:
         """Return the Envoy part number."""
         return self._info.part_number
-    
+
     @property
     def firmware_version(self) -> AwesomeVersion:
         """Return the Envoy firmware version."""
         return self._info.firmware_version
-    
+
     @property
     def is_ready(self) -> bool:
         """Return the status."""
         if self._info.setup_complete and self.auth and self.gateway:
             return True
         return False
-    
+
     @property
     def all_values(self):
         """Return all values of the gateway."""
         def iter():
             for key, val in self.gateway.all_values.items():
                 yield key, val
-        
+
         return dict(iter())
-    
+
     async def setup(self):
         """Set up the gateway reader."""
         await self._info.update()
         await self._detect_model()
-    
+
     async def update(self) -> None:
         """Fetch endpoints and update data."""
         # refresh token and GatewayInfo.
         await self._info.update()
         await self.auth.prepare(self._async_client)
-        
+
         # update endpoints
         await self.update_endpoints()
-        
-        if self.gateway.initial_update_finished == False:
+
+        if self.gateway.initial_update_finished is False:
             self.gateway.probe()
             self.gateway.initial_update_finished = True
 
-
     async def authenticate(
-        self, 
+        self,
         username: str | None = None,
         password: str | None = None,
         token: str | None = None,
@@ -129,9 +128,9 @@ class GatewayReader:
         """Authenticate to the Enphase gateway based on firmware version."""
         if not self._info.populated:
             return # TODO add logic
-        
+
         if self._info.web_tokens:
-            _LOGGER.debug("Using token authentication.")
+            _LOGGER.debug("Using EnphaseTokenAuth for authentication.")
             if token or (username and password):
                 self.auth = EnphaseTokenAuth(
                     self.host,
@@ -140,7 +139,7 @@ class GatewayReader:
                     gateway_serial_num=self._info.serial_number,
                     token_raw=token,
                     cache_token=cache_token,
-                    cache_path=cache_path,
+                    cache_filepath=cache_path,
                     auto_renewal=auto_renewal,
                 )
 
@@ -152,61 +151,68 @@ class GatewayReader:
                     self._info.serial_number,
                     username
                 )
-            
+
             elif username == "envoy" and not password:
                 password = self._info.serial_number[:6]
-            
+
             elif username and password:
-                self.auth = LegacyAuth(self.host, username, self._info.serial_number)
-            
+                self.auth = LegacyAuth(
+                    self.host,
+                    username,
+                    self._info.serial_number
+                )
+
         if not self.auth:
             _LOGGER.error(
-                "You must include username/password or token to authenticate to the Envoy."
+                "You must include username/password or a token"
+                " to authenticate to the Envoy."
             )
-            raise EnvoyAuthenticationRequired("Could not setup authentication object.")
+            raise GatewayAuthenticationRequired(
+                "Could not setup an authentication method."
+            )
 
         await self.auth.prepare(self._async_client)
 
     async def _detect_model(self) -> None:
         """Detect the Enphase gateway model.
-        
+
         Detect model based on info.xml parmeters.
-        
+
         """
         if self.firmware_version < LEGACY_ENVOY_VERSION:
             self.gateway_type = "ENVOY_MODEL_LEGACY"
             self.gateway = EnvoyLegacy()
-            
+
         elif self._info.imeter and self._info.imeter == "true":
             self.gateway_type = "ENVOY_MODEL_S_METERED"
             self.gateway = EnvoySMetered()
-        
+
         elif self._info.imeter and self._info.imeter == "false":
             self.gateway_type = "ENVOY_MODEL_S_STANDARD"
             self.gateway = EnvoyS()
-        
+
         else:
             self.gateway_type = "ENVOY_MODEL_R"
             self.gateway = Envoy()
-        
+
     def _get_async_client(self) -> httpx.AsyncClient:
         """Return default httpx client."""
         return httpx.AsyncClient(
             verify=False,
             timeout=10
         )
-        
+
     async def update_endpoints(self) -> None:
         """Update endpoints."""
         endpoints = self.gateway.required_endpoints
         _LOGGER.debug(f"Updating endpoints: {endpoints}")
         for endpoint in endpoints:
-            _LOGGER.debug(f"Endpoint info: {endpoint.last_fetch}, {endpoint.cache}")
+            _LOGGER.debug(f"Endpoint info: {endpoint._last_fetch}, {endpoint.cache}")
             if endpoint.update_required:
                 _LOGGER.debug(f"Endpoint update required: {endpoint}")
                 await self._update_endpoint(endpoint)
                 endpoint.success()
- 
+
     async def _update_endpoint(self, endpoint: GatewayEndpoint) -> None:
         """Fetch a single endpoint and store the response."""
         formatted_url = endpoint.get_url(self.auth.protocol, self.host)
@@ -217,7 +223,7 @@ class GatewayReader:
         if self.gateway:
             _LOGGER.debug(f"Setting endpoint data: {endpoint} : {response}")
             self.gateway.set_endpoint_data(endpoint, response)
-        
+
     async def _async_get(self, url: str, handle_401: bool = True, **kwargs):
         """Make a HTTP GET request to the gateway."""
         try:
@@ -235,30 +241,20 @@ class GatewayReader:
             _LOGGER.debug(
                 f"Received status_code {status_code} from Gateway"
             )
-            if status_code == 401 and handle_401 and isinstance(self.auth, EnphaseTokenAuth):
-                _LOGGER.debug(
-                    "Trying to resolve 401 error - Refreshing cookies"
-                )
-                if not await self.auth.refresh_cookies():
-                    _LOGGER.debug("Refreshing Enphase token")
-                    try:
-                        await self.auth.refresh()
-                    except Exception as exc:
-                        _LOGGER.debug(
-                            f"Error while refreshing token: {exc}"
-                        )
-                        _LOGGER.debug("Raising initial 401 error")
-                        raise err
-                        
-                return await self._async_get(url, handle_401=False, **kwargs)
+            if status_code == 401 and handle_401:
+                _LOGGER.debug("Trying to resolve 401 error")
+                if self.auth.resolve_401(self._async_client):
+                    return await self._async_get(
+                        url,
+                        handle_401=False,
+                        **kwargs
+                    )
             else:
                 raise err
-        
+
         else:
             return resp
-       
-    
-    
+
 #     def run_in_console(self):
 #         """If running this module directly, print all the values in the console."""
 #         print("Reading...")
@@ -306,7 +302,7 @@ class GatewayReader:
 
 
 # if __name__ == "__main__":
-    
+
 #     TESTREADER = GatewayReader(
 #         "192.168.178.",
 #         username="envoy",
@@ -320,6 +316,5 @@ class GatewayReader:
 #         inverters=False,
 #         async_client=None,
 #     )
-        
-#     TESTREADER.run_in_console()
 
+#     TESTREADER.run_in_console()

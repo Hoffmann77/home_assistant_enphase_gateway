@@ -135,11 +135,11 @@ class BaseGateway:
             result[attr] = getattr(self, attr)
 
         return result
-    
+
     @property
     def required_endpoints(self) -> list[GatewayEndpoint]:
         """Return all required endpoints for this Gateway.
-        
+
         Returns
         -------
         endpoints : list[GatewayEndpoint]
@@ -153,10 +153,10 @@ class BaseGateway:
         endpoints = {}
 
         def update_endpoints(endpoint):
-            _endpoint = endpoints.get(endpoint.name)
+            _endpoint = endpoints.get(endpoint.path)
             
             if _endpoint == None:
-                endpoints[endpoint.name] = endpoint
+                endpoints[endpoint.path] = endpoint
                 
             elif endpoint.cache < _endpoint.cache:
                 _endpoint.cache = endpoint.cache
@@ -190,6 +190,21 @@ class BaseGateway:
     # def register_property(endpoint, name):
     #     GATEWAY_PROPERTIES[name] = endpoint
         
+     
+    # def update_required_endpoints(self):
+        
+    #     endpoints_new = {}
+    #     for endpoint in self._gateway_properties:
+    #         _endpoint = endpoints_new.get(endpoint.path)
+    #         if _endpoint == None:
+    #             endpoints_new[endpoint.path] = endpoint
+            
+    #         elif endpoint.cache < _endpoint.cache:
+    #             _endpoint.cache = endpoint.cache
+            
+            
+            
+            
         
     
     
@@ -217,13 +232,13 @@ class BaseGateway:
 
         content_type = response.headers.get("content-type", "application/json")
         if content_type == "application/json":
-            self.data[endpoint.name] = response.json()
+            self.data[endpoint.path] = response.json()
         elif content_type in ("text/xml", "application/xml"):
-            self.data[endpoint.name] = xmltodict.parse(response.text)
+            self.data[endpoint.path] = xmltodict.parse(response.text)
         elif content_type == "text/html":
-            self.data[endpoint.name] = response.text
+            self.data[endpoint.path] = response.text
         else:
-            self.data[endpoint.name] = response.text
+            self.data[endpoint.path] = response.text
 
     def probe(self):
         """Probe all probes."""
@@ -242,10 +257,10 @@ class BaseGateway:
                 raise err
         else:
             return value
-        
+
     def get(self, attr: str, default=None):
         """Get the given attribute.
-        
+
         Parameters
         ----------
         attr : str
@@ -260,7 +275,7 @@ class BaseGateway:
 
         """
         data = getattr(self, attr)
-        if data == None:
+        if data is None:
             return default
         elif isinstance(data, str) and data == "not_supported":
             return default
