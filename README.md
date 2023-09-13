@@ -1,7 +1,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 
 
-**This is a custom HACS integration for Enphase Gateways with firmware version 7.X.**
+**This is a custom HACS integration for Enphase Gateways.**
 
 Please be aware that this custom integration **does not** overwrite the "enphase_envoy" core integration (see: [Limitations](#limitations)).
 
@@ -18,24 +18,48 @@ Please be aware that this custom integration **does not** overwrite the "enphase
 5. Add the integration through the home assistant configuration flow
 
 
-# Supported Gateways
+# Supported Devices
 ### Gateways:
   - Envoy-S Metered (with CT's enabled or disabled)
   - Envoy-S Standard
-  - Envoy-C
+  - Envoy-R
 
-### Parameters:
+#### Metrics:
 
-|  | Envoy-C | Envoy-S Standard | Envoy-S Metered <br /> (CT's disabled) | Envoy-S Metered <br /> (CT's enabled) |
+|  | Envoy-R | Envoy-S Standard | Envoy-S Metered <br /> (CT's disabled) | Envoy-S Metered <br /> (CT's enabled) |
 |:----|:----:|:----:|:----:|:----:|
-| Current Power Production | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| Today's Energy Production | :heavy_check_mark: | :heavy_check_mark: | :x: | :heavy_check_mark: |
-| Last Seven Days Energy Production | :heavy_check_mark: | :heavy_check_mark: | :x: | :heavy_check_mark: |
-| Lifetime Energy Production | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| Current Power Consumption | :x: | :x: | :x: | :heavy_check_mark: |
-| Today's Energy Consumption | :x: | :x: | :x: | :heavy_check_mark: |
-| Last Seven Days Energy Consumption | :x: | :x: | :x: | :heavy_check_mark:|
-| Lifetime Energy Consumption | :x: | :x: | :x: | :heavy_check_mark: |
+| Current power production | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Today's energy production | :heavy_check_mark: | :heavy_check_mark: | :x: | :heavy_check_mark: |
+| Last seven days energy production | :heavy_check_mark: | :heavy_check_mark: | :x: | :heavy_check_mark: |
+| Lifetime energy production | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Single inverter production | :x: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Current power consumption | :x: | :x: | :x: | :heavy_check_mark: |
+| Today's energy consumption | :x: | :x: | :x: | :heavy_check_mark: |
+| Last seven days energy consumption | :x: | :x: | :x: | :heavy_check_mark:|
+| Lifetime energy consumption | :x: | :x: | :x: | :heavy_check_mark: |
+| Aggregated ENCHARGE metrics * | :x: | :x: | :white_circle: | :heavy_check_mark: |
+
+\* ENCHARGE storage required
+
+\* Currently in beta phase
+
+### Battery storages *: 
+  - AC-Battery (supported but not tested yet)
+  - ENCHARGE 3T
+  - ENCHARGE 10T (supported but not tested yet)
+
+#### Metrics:
+
+|  | AC-Battery | ENCHARGE storage |
+|:----|:----:|:----:|
+| Power | :heavy_check_mark: | :heavy_check_mark: |
+| Charging power | :heavy_check_mark: | :heavy_check_mark: |
+| Discharging power | :heavy_check_mark: | :heavy_check_mark: |
+| Apparent power | :x: | :heavy_check_mark: |
+| Current energy capacity | :heavy_check_mark: | :heavy_check_mark: |
+| State of charge | :heavy_check_mark: | :heavy_check_mark: |
+
+#### \* Currently in beta phase
 
 # Usage
 
