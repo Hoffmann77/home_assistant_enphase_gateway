@@ -1,4 +1,4 @@
-"""GatewayInfo module."""
+"""Gateway info reader."""
 
 import httpx
 import time
@@ -7,18 +7,41 @@ from datetime import datetime, timezone, timedelta
 from lxml import etree
 
 from .http import async_get
-from .exceptions import EnvoyFirmwareCheckError, EnvoyFirmwareFatalCheckError
+from .exceptions import EnvoyFirmwareCheckError, EnvoyFirmwareFatalCheckError, GatewayCommunicationError
 
 
 class GatewayInfo:
-    """Class representing the gateway info endpoint."""
+    """Class representing the gateway info endpoint.
+
+    Attribues
+    ---------
+    part_number : str or None
+        Gateway part number.
+    serial_number : str or None
+        Gateway serial number.
+    firmware_version : AwesomeVersion or None.
+        Gateway firmware version.
+    imeter : bool
+        Gateway imeter value.
+    web_tokens : bool
+        Gateway web_tokens value.
+    populated : bool
+        If instance is populated.
     
-    def __init__(self, host: str, client: httpx.AsyncClient) -> None:
+    Raises
+    ------
+    
+    
+    
+    
+    """
+
+    def __init__(self, host: str, async_client: httpx.AsyncClient) -> None:
         """Initialize GatewayInfo."""
         self._host = host
-        self._client = client 
-        self.serial_number: str | None = None
+        self._async_client = async_client
         self.part_number: str | None = None
+        self.serial_number: str | None = None
         self.firmware_version: AwesomeVersion | None = None
         self.imeter: bool = False
         self.web_tokens: bool = False
@@ -27,18 +50,23 @@ class GatewayInfo:
 
     @property
     def update_required(self) -> bool:
+        """Return if an update of the info endpoint is required."""
         if not self.populated or self._last_fetch + 86000 <= time.time():
             return True
-        
-        return False 
-        
+        return False
+
     async def update(self) -> None:
         """Fetch the info endpoint and parse the return."""
         if not self.update_required:
-            return 
-        
+            return
+
         try:
             result = await self._get_info()
+        except httpx.TransportError as err:
+            raise GatewayCommunicationError(
+                "Transport error trying to communicate with gateway",
+                request=err.request,
+            )
         except httpx.TimeoutException:
             raise EnvoyFirmwareFatalCheckError(500, "Timeout connecting to Envoy")
         except httpx.ConnectError:
@@ -54,13 +82,13 @@ class GatewayInfo:
                     self.firmware_version = AwesomeVersion(
                         software_tag.text[1:] # remove leading letter
                     )
-                # serial number   
+                # serial number
                 if (sn_tag := device_tag.find("sn")) is not None:
                     self.serial_number = sn_tag.text
-                # part number  
+                # part number
                 if (pn_tag := device_tag.find("pn")) is not None:
                     self.part_number = pn_tag.text
-                # imeter  
+                # imeter
                 if (imeter_tag := device_tag.find("imeter")) is not None:
                     self.imeter = imeter_tag.text
                 
@@ -74,7 +102,7 @@ class GatewayInfo:
         """Fetch the info endpoint."""
         try:
             return await async_get(
-                self._client,
+                self._async_client,
                 f"https://{self._host}/info",
                 retries=1,
             )
@@ -84,7 +112,7 @@ class GatewayInfo:
             # as a fallback, worse sometimes http will redirect to https://localhost
             # which is not helpful
             return await async_get(
-                self._client,
+                self._async_client,
                 f"http://{self._host}/info",
                 retries=1,
             )

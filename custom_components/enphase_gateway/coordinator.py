@@ -1,4 +1,4 @@
-"""Gateway reader coordinator module."""
+"""Gateway update coordinator module."""
 
 from __future__ import annotations
 
@@ -17,7 +17,12 @@ from homeassistant.helpers.storage import Store
 import homeassistant.util.dt as dt_util
 
 from .gateway_reader.auth import EnphaseTokenAuth
-from .gateway_reader.exceptions import INVALID_AUTH_ERRORS
+from .gateway_reader.exceptions import (
+    INVALID_AUTH_ERRORS,
+    EnlightenAuthenticationError,
+    GatewayAuthenticationRequired,
+    GatewayAuthenticationError,
+)
 
 
 if TYPE_CHECKING:
@@ -39,9 +44,9 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
     """DataUpdateCoordinator for gateway reader."""
     
     def __init__(
-            self, 
-            hass: HomeAssistant, 
-            reader: GatewayReader, 
+            self,
+            hass: HomeAssistant,
+            reader: GatewayReader,
             entry: ConfigEntry
     ) -> None:
         """Initialize DataUpdateCoordinator for the gateway."""
@@ -61,15 +66,14 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
             update_interval=SCAN_INTERVAL,
             #always_update=False, # TODO: Added in ha 2023.9
         )
-    
+
     async def _async_setup_and_authenticate(self) -> None:
         """Set up the gateway reader and authenticate."""
-        
         gateway_reader = self.gateway_reader
         await gateway_reader.setup()
         if not gateway_reader.serial_number:
             return # TODO add logic
-        
+
         if token := await self._async_load_cached_token():
             await gateway_reader.authenticate(
                 username=self.username,
@@ -80,14 +84,14 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
             )
             self._async_refresh_token_if_needed(dt_util.utcnow())# TODO check method if applicable
             return
-        
+
         await self.gateway_reader.authenticate(
             username=self.username, 
             password=self.password
         )
-        
+
         await self._async_update_cached_token()
-          
+
     @callback
     def _async_refresh_token_if_needed(self, now: datetime) -> None:
         """Proactively refresh token if its stale in case cloud services goes down."""
@@ -106,7 +110,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
         _LOGGER.debug("%s: Trying to refresh token", self.name)
         try:
             await self.gateway_reader.auth.refresh_token()
-        except:# EnvoyError as err:
+        except: # EnvoyError as err: # TODO: Error handling
             _LOGGER.debug(f"{self.name}: Error refreshing token")
             return
         else:
@@ -127,11 +131,11 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
             TOKEN_REFRESH_CHECK_INTERVAL,
             cancel_on_shutdown=True,
         )
-    
+
     async def _async_load_cached_token(self) -> str:
         await self._async_sync_store(load=True)
         return self._store_data.get("token")
-    
+
     async def _async_update_cached_token(self) -> None:
         """Update saved token in config entry."""
         if not isinstance(self.gateway_reader.auth, EnphaseTokenAuth):
@@ -141,7 +145,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
             self._store_data["token"] = token
             self._store_update_pending = True
             await self._async_sync_store()
-    
+
     async def _async_sync_store(self, load: bool = False) -> None:
         """Sync store."""
         if (self._store and not self._store_data) or load:
@@ -150,7 +154,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
         if self._store and self._store_update_pending:
             await self._store.async_save(self._store_data)
             self._store_update_pending = False
-        
+
     def _async_update_saved_token(self) -> None:
         """Update saved token in config entry."""
         if not isinstance(self.gateway_reader.auth, EnphaseTokenAuth):
@@ -165,36 +169,39 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
                 **self.entry.data,
                 CONF_TOKEN: self.gateway_reader.auth.token,
             },
-        )    
-       
+        )
+
     async def _async_update_data(self) -> dict[str, Any]:
-        
+
         gateway_reader = self.gateway_reader
-        
-        for tries in range(2):
+
+        for _try in range(2):
             try:
                 if not self._setup_complete:
                     await self._async_setup_and_authenticate()
                     self._async_mark_setup_complete()
                 await gateway_reader.update()
                 return gateway_reader.gateway
-            except INVALID_AUTH_ERRORS as err:
-                if self._setup_complete and tries == 0:
-                    # token likely expired or firmware changed, try to re-authenticate
+
+            except GatewayAuthenticationError as err: # TODO: improve
+                # try to refresh cookies or get a new token
+                # can also be done in the get method
+                raise UpdateFailed(
+                    f"Gateway authentication error: {err}"
+                ) from err
+                #continue
+
+            except (EnlightenAuthenticationError, GatewayAuthenticationRequired) as err:
+                # token likely expired or firmware changed, try to re-authenticate
+                # Enlighten credentials are likely to be invalid
+                if self._setup_complete and _try == 0:
                     self._setup_complete = False
                     continue
                 raise ConfigEntryAuthFailed from err
+
             except httpx.HTTPError as err:
-                raise UpdateFailed(f"Error communicating with API: {err}") from err
-                
-            # except EnvoyError as err:
-            #     raise UpdateFailed(f"Error communicating with API: {err}") from err
-                
-            # except httpx.HTTPStatusError as err: # TODO implement exceptions
-            #     raise ConfigEntryAuthFailed from err
-            # except httpx.HTTPError as err:
-            #     raise UpdateFailed(f"Error communicating with API: {err}") from err
-                
-                
-        #raise RuntimeError("Unreachable code in _async_update_data")  # pragma: no cover
-        
+                raise UpdateFailed(
+                    f"Error communicating with API: {err}"
+                ) from err
+
+        raise RuntimeError("Unreachable code in _async_update_data")  # pragma: no cover

@@ -160,8 +160,6 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "_".join(r).lower()
             except CannotConnect:
                 errors["base"] = "cannot_connect"
-            except InvalidToken:
-                errors["base"] = "invalid_token"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
@@ -296,9 +294,15 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def _generate_shema_config_step(self):
         """Generate schema."""
+        CONF_INVERTERS = "inverters_config"
         schema = {
-            vol.Optional(CONF_GET_INVERTERS, default=True): bool,
+            vol.Required(CONF_INVERTERS, default="Ignore inverters"): vol.In(
+                ["As gateway sensor", "As single device", "No"]
+            )
         }
+        # schema = {
+        #     vol.Optional(CONF_GET_INVERTERS, default=True): bool,
+        # }
         if self._gateway_reader.gateway.encharge_inventory:
             schema.update(
                 {vol.Optional(CONF_ENCHARGE_ENTITIES, default=True): bool}

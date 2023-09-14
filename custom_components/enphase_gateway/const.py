@@ -44,6 +44,4 @@ CONF_EXPOSURE_PATH = "exposure_path"
 CONF_GET_INVERTERS = "get_inverters"
 CONF_ENCHARGE_ENTITIES = "encharge_entities"
 CONF_USE_LEGACY_NAME = "use_lagacy_name"
-
-
-
+CONF_INVERTERS = "inverters_config"

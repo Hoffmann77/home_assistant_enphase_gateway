@@ -33,12 +33,14 @@ class GatewayAuthenticationRequired(AuthenticationError):
 # Communication errors --->
 
 class CommunicationError(GatewayError):
-    """Base Exception for communication errors."""
+    """Base Exception for communication errors.
 
-    def __init__(self, message: str, request=None, response=None):
+    Used to specify a httpx.TransportError exception.
+    """
+
+    def __init__(self, message: str, request=None):
         super().__init__(message)
         self.request = request
-        self.response = response
 
 
 class EnlightenCommunicationError(CommunicationError):

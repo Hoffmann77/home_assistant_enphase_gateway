@@ -207,7 +207,9 @@ class GatewayReader:
         endpoints = self.gateway.required_endpoints
         _LOGGER.debug(f"Updating endpoints: {endpoints}")
         for endpoint in endpoints:
-            _LOGGER.debug(f"Endpoint info: {endpoint._last_fetch}, {endpoint.cache}")
+            _LOGGER.debug(
+                f"Endpoint info: {endpoint._last_fetch}, {endpoint.cache}"
+            )
             if endpoint.update_required:
                 _LOGGER.debug(f"Endpoint update required: {endpoint}")
                 await self._update_endpoint(endpoint)
@@ -235,20 +237,18 @@ class GatewayReader:
                 auth=self.auth.auth,
                 **kwargs
             )
-
         except httpx.HTTPStatusError as err:
-            status_code = err.response.status_code
             _LOGGER.debug(
-                f"Received status_code {status_code} from Gateway"
+                f"Gateway returned status code: {err.response.status_code}"
             )
-            if status_code == 401 and handle_401:
+            if err.response.status_code == 401 and handle_401:
                 _LOGGER.debug("Trying to resolve 401 error")
-                if self.auth.resolve_401(self._async_client):
-                    return await self._async_get(
-                        url,
-                        handle_401=False,
-                        **kwargs
-                    )
+                self.auth.resolve_401(self._async_client)
+                return await self._async_get(
+                    url,
+                    handle_401=False,
+                    **kwargs
+                )
             else:
                 raise err
 

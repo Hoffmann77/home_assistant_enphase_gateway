@@ -16,6 +16,7 @@ from .exceptions import (
     EnlightenAuthenticationError,
     EnlightenCommunicationError,
     GatewayAuthenticationError,
+    GatewayCommunicationError,
     InvalidTokenError,
     TokenAuthConfigError,
     TokenRetrievalError,
@@ -103,7 +104,45 @@ class LegacyAuth(GatewayAuth):
 
 
 class EnphaseTokenAuth(GatewayAuth):
-    """Class for Enphase Token authentication."""
+    """Class used for Enphase token authentication.
+
+    Parameters
+    ----------
+    host : str
+        Gateway host ip-adress.
+    enlighten_username : str, optional
+        Enlighten login username.
+    enlighten_password : str, optional
+        Enlighten login password.
+    gateway_serial_num : str, optional
+        Gateway serial number.
+    token_raw : str, optional
+        Enphase token.
+    cache_token : bool, default=False
+        Cache the token.
+    cache_filepath : str, default="token.json"
+        Cache filepath.
+    auto_renewal : bool, default=True,
+        Auto renewal of the token. Defaults to False if the arguments
+        'enlighten_username', 'enlighten_password' and 'gateway_serial_num'
+        are not provided.
+    stale_token_threshold : datetime.timedelta, default=timedelta(days=30)
+        Timedelta describing the stale token treshold.
+
+    Raises
+    ------
+    TokenAuthConfigError
+        If token authentication is not set up correcty.
+    TokenRetrievalError
+        If a token could not be retrieved from the Enlighten cloud.
+    InvalidTokenError
+        If a token is not valid.
+    GatewayAuthenticationError
+        If gateway authentication could not be set up.
+    EnlightenAuthenticationError
+        If Enlighten cloud credentials are not valid.
+
+    """
 
     LOGIN_URL = "https://enlighten.enphaseenergy.com/login/login.json?"
     TOKEN_URL = "https://entrez.enphaseenergy.com/tokens"
@@ -200,8 +239,9 @@ class EnphaseTokenAuth(GatewayAuth):
 
     async def prepare(self, async_client: httpx.AsyncClient) -> None:
         """Prepare class for token authentication."""
-        _LOGGER.debug("Preparing authentication method: EnphaseTokenAuth")
-
+        _LOGGER.debug(
+            f"Preparing authentication method: {self.__class__.__name__}"
+        )
         if not self._token:
             await self._setup_token(async_client)
 
@@ -230,9 +270,8 @@ class EnphaseTokenAuth(GatewayAuth):
         """Refresh the Enphase token."""
         if not self._enlighten_credentials:
             raise TokenAuthConfigError(
-                "Missing enlighten credentials for token retrieval."
+                "Enlighten credentials required for token refreshing"
             )
-
         self._token = await self._fetch_enphase_token()
         self._cookies = None
         _LOGGER.debug(f"New token valid until: {self.expiration_date}")
@@ -247,13 +286,15 @@ class EnphaseTokenAuth(GatewayAuth):
         """Resolve 401 Unauthorized response."""
         try:
             self.refresh_cookies(async_client)
-        except httpx.TransportError:
-            return False
+        except httpx.TransportError as err:
+            raise GatewayCommunicationError(
+                "Error trying to refresh token cookies: {err}",
+                request=err.request,
+            ) from err
         except InvalidTokenError:
             self._token = None
             self._cookies = None
             self.prepare(async_client)
-            return True
 
     async def _setup_token(self, async_client: httpx.AsyncClient) -> None:
         """Set up the initial Enphase token."""
@@ -339,7 +380,6 @@ class EnphaseTokenAuth(GatewayAuth):
             raise EnlightenCommunicationError(
                 "Error communicating with the Enlighten platform",
                 request=err.request,
-                response=err.response,
             ) from err
         except httpx.HTTPStatusError as err:
             if err.response.status_code == 401:
