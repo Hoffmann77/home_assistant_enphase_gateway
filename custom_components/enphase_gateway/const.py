@@ -1,16 +1,14 @@
 """The enphase_envoy component."""
 
-from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
-    BinarySensorEntityDescription
+from homeassistant.const import Platform
+
+from .gateway_reader.exceptions import (
+    EnlightenAuthenticationError,
+    EnlightenCommunicationError,
+    GatewayAuthenticationError,
+    GatewayCommunicationError,
 )
 
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorEntityDescription,
-    SensorStateClass,
-)
-from homeassistant.const import ENERGY_WATT_HOUR, POWER_WATT, Platform, PERCENTAGE
 
 DOMAIN = "enphase_gateway"
 
@@ -19,116 +17,31 @@ PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
 ICON = "mdi:flash"
 
 COORDINATOR = "coordinator"
+
 NAME = "name"
+
+CONFIG_FLOW_USER_ERROR = (
+    EnlightenAuthenticationError,
+    EnlightenCommunicationError,
+    GatewayAuthenticationError,
+    GatewayCommunicationError,
+)
+
+AVAILABLE_PROPERTIES = {
+    "production", "daily_production", "seven_days_production",
+    "lifetime_production", "consumption", "daily_consumption",
+    "seven_days_consumption", "lifetime_consumption", "inverters_production",
+    "grid_status", "ensemble_power", "ensemble_submod", "ensemble_secctrl",
+    "battery_storage", "encharge_inventory", "encharge_power"
+}
 
 CONF_SERIAL_NUM = "serial_num"
 CONF_USE_TOKEN_AUTH = "use_token_auth"
 CONF_TOKEN_RAW = "token_raw"
-CONF_USE_TOKEN_CACHE = "use_token_cache"
-CONF_TOKEN_CACHE_FILEPATH = "token_cache_filepath"
-CONF_SINGLE_INVERTER_ENTITIES = "single_inverter_entities"
-
-SENSORS = (
-    SensorEntityDescription(
-        key="production",
-        name="Current Power Production",
-        native_unit_of_measurement=POWER_WATT,
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    SensorEntityDescription(
-        key="daily_production",
-        name="Today's Energy Production",
-        native_unit_of_measurement=ENERGY_WATT_HOUR,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        device_class=SensorDeviceClass.ENERGY,
-    ),
-    SensorEntityDescription(
-        key="seven_days_production",
-        name="Last Seven Days Energy Production",
-        native_unit_of_measurement=ENERGY_WATT_HOUR,
-        state_class=SensorStateClass.TOTAL,
-        device_class=SensorDeviceClass.ENERGY,
-    ),
-    SensorEntityDescription(
-        key="lifetime_production",
-        name="Lifetime Energy Production",
-        native_unit_of_measurement=ENERGY_WATT_HOUR,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        device_class=SensorDeviceClass.ENERGY,
-    ),
-    SensorEntityDescription(
-        key="consumption",
-        name="Current Power Consumption",
-        native_unit_of_measurement=POWER_WATT,
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    SensorEntityDescription(
-        key="daily_consumption",
-        name="Today's Energy Consumption",
-        native_unit_of_measurement=ENERGY_WATT_HOUR,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        device_class=SensorDeviceClass.ENERGY,
-    ),
-    SensorEntityDescription(
-        key="seven_days_consumption",
-        name="Last Seven Days Energy Consumption",
-        native_unit_of_measurement=ENERGY_WATT_HOUR,
-        state_class=SensorStateClass.TOTAL,
-        device_class=SensorDeviceClass.ENERGY,
-    ),
-    SensorEntityDescription(
-        key="lifetime_consumption",
-        name="Lifetime Energy Consumption",
-        native_unit_of_measurement=ENERGY_WATT_HOUR,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        device_class=SensorDeviceClass.ENERGY,
-    ),
-    SensorEntityDescription(
-        key="inverters",
-        name="Inverter",
-        native_unit_of_measurement=POWER_WATT,
-        state_class=SensorStateClass.MEASUREMENT,
-    ),
-    SensorEntityDescription(
-        key="batteries",
-        name="Battery",
-        native_unit_of_measurement=PERCENTAGE,
-        state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.BATTERY
-    ),
-    SensorEntityDescription(
-        key="total_battery_percentage",
-        name="Total Battery Percentage",
-        native_unit_of_measurement=PERCENTAGE,
-        state_class=SensorStateClass.MEASUREMENT
-    ),
-    SensorEntityDescription(
-        key="current_battery_capacity",
-        name="Current Battery Capacity",
-        native_unit_of_measurement=ENERGY_WATT_HOUR,
-        state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.ENERGY
-    ),
-)
-
-BATTERY_ENERGY_DISCHARGED_SENSOR = SensorEntityDescription(
-    key="battery_energy_discharged",
-    name="Battery Energy Discharged",
-    native_unit_of_measurement=ENERGY_WATT_HOUR,
-    state_class=SensorStateClass.TOTAL,
-    device_class=SensorDeviceClass.ENERGY
-)
-
-BATTERY_ENERGY_CHARGED_SENSOR = SensorEntityDescription(
-    key="battery_energy_charged",
-    name="Battery Energy Charged",
-    native_unit_of_measurement=ENERGY_WATT_HOUR,
-    state_class=SensorStateClass.TOTAL,
-    device_class=SensorDeviceClass.ENERGY
-)
-
-GRID_STATUS_BINARY_SENSOR = BinarySensorEntityDescription(
-    key="grid_status",
-    name="Grid Status",
-    device_class=BinarySensorDeviceClass.CONNECTIVITY
-)
+CONF_CACHE_TOKEN = "cache_token"
+CONF_EXPOSE_TOKEN = "expose_token"
+CONF_EXPOSURE_PATH = "exposure_path"
+CONF_GET_INVERTERS = "get_inverters"
+CONF_ENCHARGE_ENTITIES = "encharge_entities"
+CONF_USE_LEGACY_NAME = "use_lagacy_name"
+CONF_INVERTERS = "inverters_config"

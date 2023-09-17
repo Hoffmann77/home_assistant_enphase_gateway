@@ -4,10 +4,10 @@
   "codeowners": ["@Hoffmann77"],
   "documentation": "https://github.com/Hoffmann77/home_assistant_enphase_gateway",
   "issue_tracker": "https://github.com/Hoffmann77/home_assistant_enphase_gateway/issues",
-  "requirements": ["envoy-utils"],
+  "requirements": ["envoy-utils", "xmltodict", "httpx", "jsonpath"],
   "iot_class": "local_polling",
   "integration_type": "hub",
-  "version": "0.9.0-beta",
+  "version": "1.2.0",
   "config_flow": true,
   "zeroconf": [
     {

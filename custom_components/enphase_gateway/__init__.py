@@ -2,108 +2,46 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
 
-import httpx
-import async_timeout
-from numpy import isin
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_USERNAME
+from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.httpx_client import get_async_client
 
-from .const import COORDINATOR, DOMAIN, NAME, PLATFORMS, SENSORS, CONF_USE_TOKEN_AUTH, CONF_SERIAL_NUM
 from .gateway_reader import GatewayReader
+from .coordinator import GatewayReaderUpdateCoordinator
+from .const import ( 
+    DOMAIN, PLATFORMS, CONF_ENCHARGE_ENTITIES, CONF_INVERTERS
+)
 
-
-SCAN_INTERVAL = timedelta(seconds=60)
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Enphase Gateway from a config entry."""
-    config = entry.data
-    name = config[CONF_NAME]
+    host = entry.data[CONF_HOST]
+    reader = GatewayReader(host, get_async_client(hass, verify_ssl=False))
+    coordinator = GatewayReaderUpdateCoordinator(hass, reader, entry)
 
-    gateway_reader = GatewayReader(
-        config[CONF_HOST],
-        username=config[CONF_USERNAME],
-        password=config[CONF_PASSWORD],
-        gateway_serial_num=config[CONF_SERIAL_NUM],
-        use_token_auth=config.get(CONF_USE_TOKEN_AUTH, False),
-        # async_client=get_async_client(hass),
-        inverters=True,
-    )
-    
-    async def async_update_data():
-        """Fetch data from API endpoint."""
-        data = {}
-        async with async_timeout.timeout(30):
-            try:
-                await gateway_reader.getData()
-            except httpx.HTTPStatusError as err:
-                raise ConfigEntryAuthFailed from err
-            except httpx.HTTPError as err:
-                raise UpdateFailed(f"Error communicating with API: {err}") from err
-
-            for description in SENSORS:
-                if description.key == "inverters":
-                    data[
-                        "inverters_production"
-                    ] = await gateway_reader.inverters_production()
-
-                elif description.key == "batteries":
-                    battery_data = await gateway_reader.battery_storage()
-                    if isinstance(battery_data, list) and len(battery_data) > 0:
-                        battery_dict = {}
-                        for item in battery_data:
-                            battery_dict[item["serial_num"]] = item
-
-                        data[description.key] = battery_dict
-
-                elif (description.key not in ["current_battery_capacity", "total_battery_percentage"]):
-                    data[description.key] = await getattr(
-                        gateway_reader, description.key
-                    )()
-
-            data["grid_status"] = await gateway_reader.grid_status()
-
-            _LOGGER.debug("Retrieved data from API: %s", data)
-
-            return data
-
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name=f"envoy {name}",
-        update_method=async_update_data,
-        update_interval=SCAN_INTERVAL,
-    )
-
-    try:
-        await coordinator.async_config_entry_first_refresh()
-    except ConfigEntryAuthFailed:
-        gateway_reader.get_inverters = False
-        await coordinator.async_config_entry_first_refresh()
+    await coordinator.async_config_entry_first_refresh()
 
     if not entry.unique_id:
-        try:
-            serial = await gateway_reader.get_serial_number()
-        except httpx.HTTPError:
-            pass
-        else:
-            hass.config_entries.async_update_entry(entry, unique_id=serial)
+        hass.config_entries.async_update_entry(
+            entry,
+            unique_id=reader.serial_number
+        )
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
-        COORDINATOR: coordinator,
-        NAME: name,
-    }
-
+    entry.async_on_unload(entry.add_update_listener(update_listener))
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
+
+
+async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Handle options update."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -112,3 +50,34 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
+
+
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Migrate old entry."""
+    _LOGGER.debug(f"Migrating from version {config_entry.version}")
+
+    if config_entry.version == 1:
+
+        new = {**config_entry.data}
+        
+        # Remove unwanted variables
+        new.pop("token_raw", None)
+        new.pop("use_token_cache", None)
+        new.pop("token_cache_filepath", None)
+        new.pop("single_inverter_entities", None)
+        
+        options = {
+            CONF_INVERTERS: "gateway_sensor",
+            CONF_ENCHARGE_ENTITIES: False,
+        }
+        
+        config_entry.version = 2
+        hass.config_entries.async_update_entry(
+            config_entry,
+            data=new,
+            options=options
+        )
+
+    _LOGGER.info("Migration to version {config_entry.version} successful")
+
+    return True

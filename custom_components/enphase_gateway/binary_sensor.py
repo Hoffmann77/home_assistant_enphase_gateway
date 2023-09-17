@@ -1,35 +1,57 @@
+"""Home assistant binary sensors for the Enphase gateway integration."""
+
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntityDescription
+)
 
-from .const import COORDINATOR, DOMAIN, NAME, GRID_STATUS_BINARY_SENSOR, ICON
+from .const import DOMAIN, ICON
+from .coordinator import GatewayReaderUpdateCoordinator
+from .entity import GatewayBinarySensorBaseEntity
+
+
+GRID_STATUS_BINARY_SENSOR = (
+    BinarySensorEntityDescription(
+        key="grid_status",
+        name="Grid Status",
+        device_class=BinarySensorDeviceClass.CONNECTIVITY
+    ),
+)
+
 
 async def async_setup_entry(
-    hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: AddEntitiesCallback
+    hass: HomeAssistant, 
+    config_entry: ConfigEntry, 
+    async_add_entities: AddEntitiesCallback
 ) -> None:
-  data = hass.data[DOMAIN][config_entry.entry_id]
-  coordinator = data[COORDINATOR]
-  name = data[NAME]
+    """Set up gateway binary sensor platform."""
+    #data = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    data = coordinator.data
+    name = coordinator.name
+  
+    entities = []
+    if (coordinator.data.get("grid_status") is not None):
+      entities.append(
+          EnvoyGridStatusEntity(
+              GRID_STATUS_BINARY_SENSOR,
+              GRID_STATUS_BINARY_SENSOR.name,
+              name,
+              config_entry.unique_id,
+              None,
+              coordinator,
+          )
+      )
+  
+    async_add_entities(entities)
 
-  entities = []
-  if (coordinator.data.get("grid_status") is not None):
-    entities.append(
-        EnvoyGridStatusEntity(
-            GRID_STATUS_BINARY_SENSOR,
-            GRID_STATUS_BINARY_SENSOR.name,
-            name,
-            config_entry.unique_id,
-            None,
-            coordinator,
-        )
-    )
-
-  async_add_entities(entities)
-
-
+# TODO: Refactor entities
 class EnvoyGridStatusEntity(CoordinatorEntity, BinarySensorEntity):
   def __init__(
       self,
