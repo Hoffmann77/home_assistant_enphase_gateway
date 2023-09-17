@@ -19,7 +19,7 @@ from homeassistant.const import (
     UnitOfPower,
 )
 
-from .const import DOMAIN,  ICON, CONF_INVERTERS
+from .const import DOMAIN,  ICON, CONF_INVERTERS, CONF_ENCHARGE_ENTITIES
 from .entity import GatewaySensorBaseEntity
 from .coordinator import GatewayReaderUpdateCoordinator
 
@@ -302,6 +302,7 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
     options = config_entry.options
     get_inverters = options.get(CONF_INVERTERS, False)
+    encharge_device = options.get(CONF_ENCHARGE_ENTITIES, False)
     entities = []
 
     for sensor_description in (PRODUCTION_SENSORS + CONSUMPTION_SENSORS):
@@ -336,14 +337,14 @@ async def async_setup_entry(
             for description in ENCHARGE_AGG_POWER_SENSORS
         )
 
-    if data := coordinator.data.encharge_inventory:
+    if data := coordinator.data.encharge_inventory and encharge_device:
         entities.extend(
             EnchargeInventoryEntity(coordinator, description, encharge)
             for description in ENCHARGE_INVENTORY_SENSORS
             for encharge in data
         )
 
-    if data := coordinator.data.encharge_power:
+    if data := coordinator.data.encharge_power and encharge_device:
         entities.extend(
             EnchargePowerEntity(coordinator, description, encharge)
             for description in ENCHARGE_POWER_SENSORS
