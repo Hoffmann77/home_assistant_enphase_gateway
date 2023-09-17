@@ -12,16 +12,14 @@ from homeassistant.components import zeroconf
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers.selector import selector
 from homeassistant.helpers.httpx_client import get_async_client
 
 from .gateway_reader import GatewayReader
-from .exceptions import (
-    CannotConnect, InvalidAuth, EnlightenInvalidAuth, InvalidToken,
-    EnlightenUnauthorized, InvalidEnphaseToken
-)
+from .exceptions import CannotConnect
 from .const import (
-    DOMAIN, CONF_SERIAL_NUM, CONF_CACHE_TOKEN, CONF_GET_INVERTERS,
-    CONF_USE_LEGACY_NAME, CONF_ENCHARGE_ENTITIES, CONFIG_FLOW_USER_ERROR
+    DOMAIN, CONF_SERIAL_NUM, CONF_CACHE_TOKEN, CONF_USE_LEGACY_NAME, 
+    CONF_ENCHARGE_ENTITIES, CONFIG_FLOW_USER_ERROR, CONF_INVERTERS,
 )
 
 
@@ -294,15 +292,19 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def _generate_shema_config_step(self):
         """Generate schema."""
-        CONF_INVERTERS = "inverters_config"
+        
         schema = {
-            vol.Required(CONF_INVERTERS, default="Ignore inverters"): vol.In(
-                ["As gateway sensor", "As single device", "No"]
-            )
+            vol.Required(CONF_INVERTERS): selector(
+                {
+                    "select": {
+                        "translation_key": CONF_INVERTERS,
+                        "mode": "dropdown",
+                        "options": ["gateway_sensor", "device", "disabled"],
+                    }
+                }
+            ),
         }
-        # schema = {
-        #     vol.Optional(CONF_GET_INVERTERS, default=True): bool,
-        # }
+        
         if self._gateway_reader.gateway.encharge_inventory:
             schema.update(
                 {vol.Optional(CONF_ENCHARGE_ENTITIES, default=True): bool}
@@ -370,11 +372,17 @@ class GatewayOptionsFlow(config_entries.OptionsFlow):
         """Generate schema."""
         options = self.config_entry.options
         options_keys = options.keys()
+        options_inverters = options.get(CONF_INVERTERS, "disabled")
         schema = {
-            vol.Optional(
-                CONF_GET_INVERTERS,
-                default=options.get(CONF_GET_INVERTERS, True)
-            ): bool,
+            vol.Optional(CONF_INVERTERS, default=options_inverters): selector(
+                {
+                    "select": {
+                        "translation_key": CONF_INVERTERS,
+                        "mode": "dropdown",
+                        "options": ["gateway_sensor", "device", "disabled"],
+                    }
+                }
+            ),
         }
         if CONF_ENCHARGE_ENTITIES in options_keys:
             schema.update({

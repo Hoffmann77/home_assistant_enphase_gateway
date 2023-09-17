@@ -19,7 +19,7 @@ from homeassistant.const import (
     UnitOfPower,
 )
 
-from .const import DOMAIN,  ICON, CONF_GET_INVERTERS, CONF_INVERTERS
+from .const import DOMAIN,  ICON, CONF_INVERTERS
 from .entity import GatewaySensorBaseEntity
 from .coordinator import GatewayReaderUpdateCoordinator
 
@@ -27,16 +27,16 @@ from .coordinator import GatewayReaderUpdateCoordinator
 INVERTER_SENSORS = (
     SensorEntityDescription(
         key="lastReportWatts",
-        name="Inverter",
+        name="Power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
     ),
     SensorEntityDescription(
-        key="last_reported",
+        key="lastReportDate",
         name="Last reported",
         device_class=SensorDeviceClass.TIMESTAMP,
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,  # TODO: check feature
     ),
 )
 
@@ -165,35 +165,35 @@ AC_BATTERY_SENSORS = (
 ENCHARGE_AGG_SENSORS = (
     SensorEntityDescription(
         key="Enc_max_available_capacity",
-        name="Encharge agg nominal capacity",
+        name="ENCHARGE capacity",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.ENERGY_STORAGE
     ),
     SensorEntityDescription(
         key="ENC_agg_avail_energy",
-        name="Encharge agg availiable Energy",
+        name="ENCHARGE energy availiable",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.ENERGY_STORAGE
     ),
     SensorEntityDescription(
         key="ENC_agg_backup_energy",
-        name="Encharge agg backup capacity",
+        name="ENCHARGE backup capacity",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.ENERGY_STORAGE
     ),
     SensorEntityDescription(
         key="ENC_agg_soc",
-        name="Encharge agg SoC",
+        name="ENCHARGE SoC",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.BATTERY
     ),
     SensorEntityDescription(
         key="ENC_agg_soh",
-        name="Encharge agg SoH",
+        name="ENCHARGE SoH",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
@@ -203,28 +203,28 @@ ENCHARGE_AGG_SENSORS = (
 ENCHARGE_AGG_POWER_SENSORS = (
     SensorEntityDescription(
         key="real_power_mw",
-        name="Encharge agg power",
+        name="ENCHARGE power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER
     ),
     SensorEntityDescription(
         key="apparent_power_mva",
-        name="Encharge agg apparent power",
+        name="ENCHARGE apparent power",
         native_unit_of_measurement=UnitOfApparentPower.VOLT_AMPERE,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.APPARENT_POWER
     ),
     SensorEntityDescription(
         key="charge",
-        name="Encharge agg charging power",
+        name="ENCHARGE charging power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER
     ),
     SensorEntityDescription(
         key="discharge",
-        name="Encharge agg discharging power",
+        name="ENCHARGE discharging power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER
@@ -235,7 +235,7 @@ ENCHARGE_AGG_POWER_SENSORS = (
 ENCHARGE_INVENTORY_SENSORS = (
     SensorEntityDescription(
         key="encharge_capacity",
-        name="Nominal Capacity",
+        name="Capacity",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
@@ -244,7 +244,7 @@ ENCHARGE_INVENTORY_SENSORS = (
     ),
     SensorEntityDescription(
         key="calculated_capacity",
-        name="Calculated availiable energy",
+        name="Calculated energy availiable",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
@@ -311,13 +311,13 @@ async def async_setup_entry(
             )
 
     if (data := coordinator.data.inverters_production) and get_inverters:
-        if get_inverters == "As gateway sensor":
+        if get_inverters == "gateway_sensor":
             entities.extend(
                 GatewaySensorInverterEntity(coordinator, description, inverter)
                 for description in INVERTER_SENSORS[:1]
                 for inverter in data
             )
-        if get_inverters == "As device":
+        if get_inverters == "device":
             entities.extend(
                 GatewayInverterEntity(coordinator, description, inverter)
                 for description in INVERTER_SENSORS
@@ -407,7 +407,8 @@ class GatewaySensorInverterEntity(GatewaySystemSensorEntity):
     @property
     def name(self):
         """Return the entity name."""
-        return f"{self.entity_description.name} {self._serial_number}"
+        return f"Inverter {self._serial_number}"
+        # return f"{self.entity_description.name} {self._serial_number}"
 
     @property
     def native_value(self):
@@ -425,8 +426,9 @@ class GatewaySensorInverterEntity(GatewaySystemSensorEntity):
         data = self.data.get("inverters_production")
         if data is not None:
             inv = data.get(self._serial_number)
-            if last_reported := inv.get("last_reported"):
-                return dt_util.utc_from_timestamp(last_reported)
+            if last_reported := inv.get("lastReportDate"):
+                dt = dt_util.utc_from_timestamp(last_reported)
+                return {"last_reported": dt}
 
         return None
 
@@ -441,7 +443,9 @@ class GatewayInverterEntity(GatewaySensorInverterEntity):
     @property
     def name(self):
         """Return the entity's name."""
-        return None  # override the parent inverter class name
+        # override the parent inverter class name
+        return super(GatewaySensorInverterEntity, self).name
+        #return self.entity_description.name
 
     @property
     def unique_id(self) -> str:
@@ -471,7 +475,7 @@ class GatewayInverterEntity(GatewaySensorInverterEntity):
         _key = self.entity_description.key
         if (data := self.data.get("inverters_production")) is not None:
             value = data.get(self._serial_number, {}).get(_key)
-            if value is not None and _key == "last_reported":
+            if value is not None and _key == "lastReportDate":
                 return dt_util.utc_from_timestamp(value)
             return value
 

@@ -5,7 +5,7 @@
       "reauth_successful": "Re-authentication was successful"
     },
     "error": {
-      "gateway_communication_error": "Failed to communicate with the Enphase gateway",
+      "gateway_communication_error": "Failed to communicate with the Enphase gateway.",
       "gateway_authentication_error": "Gateway authentication failed. Please verify that the credentials you provided are valid.",
       "enlighten_communication_error": "Failed to communicate with the Enphase cloud",
       "enlighten_authentication_error": "Enphase cloud authentication failed. Please verify that the credentials you provided are valid.",
@@ -27,9 +27,9 @@
       "config": {
         "title": "{gateway_type} Configuration",
         "data": {
-          "inverters_config": "Add single inverter entities (Production values for every single Inverter)",
+          "inverters_config": "Inverter entities",
           "encharge_entities": "Enable detailed Entities for ENCHARGE batteries",
-          "cache_token": "Cache the Enphase Token"
+          "cache_token": "Cache the Enphase token"
         }
       }
     }
@@ -40,10 +40,19 @@
         "title": "Configuration",
         "description": "Configure the Integration",
         "data": {
-          "get_inverters": "Enable single Inverter entities (Production values for every single Inverter)",
-          "storage_entities": "Enable detailed battery Entities",
+          "inverters_config": "Inverter entities",
+          "encharge_entities": "Enable detailed Entities for ENCHARGE batteries",
           "cache_token": "Cache the Enphase Token"
         }
+      }
+    }
+  },
+  "selector": {
+    "inverters_config": {
+      "options": {
+        "gateway_sensor": "Add inverters as gateway sensor",
+        "device": "Add inverters as dedicated devices",
+        "disabled": "Disable inverters"
       }
     }
   }

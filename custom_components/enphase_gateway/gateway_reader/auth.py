@@ -432,7 +432,10 @@ class EnphaseTokenAuth(GatewayAuth):
             _LOGGER.debug(f"Transport Error while checking token: {err}")
             if fail_silent:
                 return None
-            raise err
+            raise GatewayCommunicationError(
+                "Error trying to validate token: {err}",
+                request=err.request,
+            ) from err
 
         else:
             soup = BeautifulSoup(resp.text, features="html.parser")
