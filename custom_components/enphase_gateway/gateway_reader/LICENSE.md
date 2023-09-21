@@ -1,8 +1,7 @@
 
 MIT License
 
-Copyright (c) 2023 pyenphase
-Copyright (c) 2023 Hoffmann77
+Copyright (c) 2023 pyenphase, Hoffmann77
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
