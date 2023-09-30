@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity import DeviceInfo
@@ -22,6 +24,9 @@ from homeassistant.const import (
 from .const import DOMAIN,  ICON, CONF_INVERTERS, CONF_ENCHARGE_ENTITIES
 from .entity import GatewaySensorBaseEntity
 from .coordinator import GatewayReaderUpdateCoordinator
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 INVERTER_SENSORS = (
@@ -301,24 +306,25 @@ async def async_setup_entry(
     """Set up envoy sensor platform."""
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
     options = config_entry.options
-    get_inverters = options.get(CONF_INVERTERS, False)
-    encharge_device = options.get(CONF_ENCHARGE_ENTITIES, False)
+    conf_inverters = options.get(CONF_INVERTERS, False)
+    conf_encharge_entity = options.get(CONF_ENCHARGE_ENTITIES, False)
     entities = []
 
     for sensor_description in (PRODUCTION_SENSORS + CONSUMPTION_SENSORS):
+        _LOGGER.debug("Setting up entity: sensor_description.name")
         if getattr(coordinator.data, sensor_description.key):
             entities.append(
                 GatewaySensorEntity(coordinator, sensor_description)
             )
 
-    if (data := coordinator.data.inverters_production) and get_inverters:
-        if get_inverters == "gateway_sensor":
+    if (data := coordinator.data.inverters_production) and conf_inverters:
+        if conf_inverters == "gateway_sensor":
             entities.extend(
                 GatewaySensorInverterEntity(coordinator, description, inverter)
                 for description in INVERTER_SENSORS[:1]
                 for inverter in data
             )
-        if get_inverters == "device":
+        if conf_inverters == "device":
             entities.extend(
                 GatewayInverterEntity(coordinator, description, inverter)
                 for description in INVERTER_SENSORS
@@ -337,20 +343,21 @@ async def async_setup_entry(
             for description in ENCHARGE_AGG_POWER_SENSORS
         )
 
-    if (data := coordinator.data.encharge_inventory) and encharge_device:
+    if (data := coordinator.data.encharge_inventory) and conf_encharge_entity:
         entities.extend(
             EnchargeInventoryEntity(coordinator, description, encharge)
             for description in ENCHARGE_INVENTORY_SENSORS
             for encharge in data
         )
 
-    if (data := coordinator.data.encharge_power) and encharge_device:
+    if (data := coordinator.data.encharge_power) and conf_encharge_entity:
         entities.extend(
             EnchargePowerEntity(coordinator, description, encharge)
             for description in ENCHARGE_POWER_SENSORS
             for encharge in data
         )
-
+    
+    _LOGGER.debug(f"Adding entities: {entities}")
     async_add_entities(entities)
 
 
