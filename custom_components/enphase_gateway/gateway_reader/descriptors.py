@@ -6,7 +6,7 @@ from textwrap import dedent
 
 from jsonpath import jsonpath
 
-from .endpoint import GatewayEndpoint
+from endpoint import GatewayEndpoint # removed .
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ _LOGGER = logging.getLogger(__name__)
 class BaseDescriptor:
     """Base descriptor."""
 
-    def __init__(self, required_endpoint: str, cache: int) -> None:
+    def __init__(self, required_endpoint: str, cache: int = 0) -> None:
         """Initialize BaseDescriptor."""
         self._required_endpoint = required_endpoint
         self._cache = cache
@@ -29,7 +29,7 @@ class BaseDescriptor:
 
 class ResponseDescriptor(BaseDescriptor):
     """Descriptor returning the raw response."""
-
+    
     def __get__(self, obj, objtype):
         """Magic method. Return the response data."""
         data = obj.data.get(self._required_endpoint, {})

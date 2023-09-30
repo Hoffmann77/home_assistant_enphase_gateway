@@ -9,7 +9,7 @@ from homeassistant.util.network import is_ipv6_address
 
 from .http import async_get
 from .endpoint import GatewayEndpoint
-from .gateway import EnvoyLegacy, Envoy, EnvoyS, EnvoySMetered
+from .gateway import EnvoyLegacy, Envoy, EnvoyS, EnvoySMetered, EnvoySMeteredNew
 from .const import LEGACY_ENVOY_VERSION
 from .gateway_info import GatewayInfo
 from .auth import LegacyAuth, EnphaseTokenAuth
@@ -185,7 +185,7 @@ class GatewayReader:
 
         elif self._info.imeter and self._info.imeter == "true":
             self.gateway_type = "ENVOY_MODEL_S_METERED"
-            self.gateway = EnvoySMetered()
+            self.gateway = EnvoySMeteredNew() # EnvoySMetered()
 
         elif self._info.imeter and self._info.imeter == "false":
             self.gateway_type = "ENVOY_MODEL_S_STANDARD"

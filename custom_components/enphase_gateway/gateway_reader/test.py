@@ -2,34 +2,36 @@
 
 from __future__ import annotations
 
+import time
 import logging
-import xmltodict
+#import xmltodict
 from typing import TYPE_CHECKING, Callable
 
 from httpx import Response
 
-from .const import AVAILABLE_PROPERTIES
-from .endpoint import GatewayEndpoint
-from .descriptors import ResponseDescriptor, JsonDescriptor, RegexDescriptor
+from const import AVAILABLE_PROPERTIES
+from endpoint import GatewayEndpoint
+from descriptors import ResponseDescriptor, JsonDescriptor, RegexDescriptor 
 
-# from .models.ac_battery import ACBattery
+#from .models.ac_battery import ACBattery
 
 if TYPE_CHECKING:
-    from .gateway_reader import GatewayReader
+    from gateway_reader import GatewayReader
 
 
 _LOGGER = logging.getLogger(__name__)
 
+#GATEWAY_PROPERTIES = {}
 
-# TODO fix type hint
-def gateway_property(_func: Callable | None = None, **kwargs) -> None:
-    """Register an instance's method as a gateway property method.
 
-    Flags the method with the 'gateway_property' attribute.
-    During class creation the 'gateway_property' attribute is catched,
-    the method added to the instance's '_gateway_properties' attribute and
-    is returned as property.
-
+def gateway_property(_func: Callable | None = None, **kwargs) -> property:
+    """Gateway property decorator.
+    
+    Register the decorated method and it's required endpoint to 
+    BaseGateway._gateway_properties.
+    
+    Return a property of the the decorated method.
+    
     Parameters
     ----------
     _func : Callable, optional
@@ -45,26 +47,28 @@ def gateway_property(_func: Callable | None = None, **kwargs) -> None:
     """
     required_endpoint = kwargs.pop("required_endpoint", None)
     cache = kwargs.pop("cache", 0)
-
+    
     def decorator(func):
-        endpoint = None
+        """Inner function"""
+        _endpoint = None
         if required_endpoint:
-            endpoint = GatewayEndpoint(required_endpoint, cache)
-
-        func.gateway_property = endpoint
-        return func
-
+            _endpoint = GatewayEndpoint(required_endpoint, cache)
+        
+        func.gateway_property = _endpoint
+        #BaseGateway._gateway_properties[func.__name__] = _endpoint
+        return func #property(func)
+    
     return decorator if _func is None else decorator(_func)
-
+    
 
 def gateway_probe(_func: Callable | None = None, **kwargs) -> property:
     """Gateway probe decorator.
-
-    Register the decorated method and it's required endpoint to
+    
+    Register the decorated method and it's required endpoint to 
     BaseGateway._gateway_probes.
-
+    
     Return a property of the the decorated method.
-
+    
     Parameters
     ----------
     _func : Callable, optional
@@ -87,54 +91,59 @@ def gateway_probe(_func: Callable | None = None, **kwargs) -> property:
                 _endpoint = GatewayEndpoint(required_endpoint, cache)
             else:
                 _endpoint = None
-
+            
             type(self)._gateway_probes[func.__name__] = _endpoint
             return func(self, *args, **kwargs)
-
+        
         return inner
-
-    return decorator if _func is None else decorator(_func)
-
-
+    
+    if _func == None:
+        return decorator
+    else:
+        return decorator(_func)
+    
+    
 class BaseGateway:
     """Base class representing an (R)Enphase Gateway.
-
-    Provides properties to access data fetched from the required endpoint.
-
+    
+    Provides properties to access data fetched from the required endpoint. 
+    
     Attributes
     ----------
     data : dict
         Response data from the endpoints.
     initial_update_finished : bool
         Return True if the initial update has finished. Return False otherwise.
-
+    
     """
-
     VERBOSE_NAME = "Enphase Gateway"
 
     _gateway_properties = {}
     _gateway_probes = {}
-
+    
     def __new__(cls, *args, **kwargs):
         """Create a new instance."""
         for name, method in cls.__dict__.items():
-            endpoint = getattr(method, "gateway_property", None)
-            if endpoint is GatewayEndpoint:
+            # print(name, cls)
+            if endpoint := getattr(method, "gateway_property", None):
                 cls._gateway_properties[name] = endpoint
                 setattr(cls, name, property(method))
-
+        
         return super().__new__(cls, *args, **kwargs)
-
+    
+    
+    
+    
     def __init__(self) -> None:
         """Initialize instance of BaseGateway."""
         self.data = {}
         self.initial_update_finished = False
         self._required_endpoints = None
-
+    
     @property
     def all_values(self) -> dict[str, int | float]:
         """Return a dict containing all attributes.
-
+        
         Returns
         -------
         dict
@@ -159,36 +168,37 @@ class BaseGateway:
         """
         if self._required_endpoints:
             return self._required_endpoints.values()
-
+            
         endpoints = {}
 
         def update_endpoints(endpoint):
             _endpoint = endpoints.get(endpoint.path)
-
-            if _endpoint is None:
+            
+            if _endpoint == None:
                 endpoints[endpoint.path] = endpoint
-
+                
             elif endpoint.cache < _endpoint.cache:
                 _endpoint.cache = endpoint.cache
-
-        _LOGGER.debug(f"Registered properties: {self._gateway_properties}")
+        
+        _LOGGER.debug(f"properties registered: {self._gateway_properties.items()}")
+        #for prop, prop_endpoint in GATEWAY_PROPERTIES.items():
         for prop, prop_endpoint in self._gateway_properties.items():
             if isinstance(prop_endpoint, GatewayEndpoint):
-
+                
                 value = getattr(self, prop)
                 if self.initial_update_finished and value in (None, [], {}):
                     # When the value is None or empty list or dict,
                     # then the endpoint is useless for this token,
                     # so do not require it.
                     continue
-
+                
                 update_endpoints(prop_endpoint)
-
+                
         if self.initial_update_finished:
             # Save the list in memory, as we should not evaluate this list again.
             # If the list needs re-evaluation, then reload the plugin.
-            self._required_endpoints = endpoints
-
+            self._required_endpoints = endpoints    
+        
         else:
             for probe, probe_endpoint in self._gateway_probes.items():
                 if isinstance(probe_endpoint, GatewayEndpoint):
@@ -248,7 +258,8 @@ class BaseGateway:
         if content_type == "application/json":
             self.data[endpoint.path] = response.json()
         elif content_type in ("text/xml", "application/xml"):
-            self.data[endpoint.path] = xmltodict.parse(response.text)
+            pass
+            #self.data[endpoint.path] = xmltodict.parse(response.text)
         elif content_type == "text/html":
             self.data[endpoint.path] = response.text
         else:
@@ -424,12 +435,12 @@ class EnvoyS(Envoy):
     
     
     
-    # @gateway_property
-    # def ac_battery(self) -> ACBattery | None:
-    #     """AC battery data."""
-    #     data = self.data.get("production.json", {})
-    #     result = JsonDescriptor.resolve("storage[?(@.percentFull)]", data)
-    #     return ACBattery(result) if result else None
+    @gateway_property
+    def ac_battery(self) ->  None:
+        """AC battery data."""
+        data = self.data.get("production.json", {})
+        result = JsonDescriptor.resolve("storage[?(@.percentFull)]", data)
+        return None
         
     
     # @gateway_property(required_endpoint="ensemble_submod")
@@ -636,7 +647,7 @@ class EnvoySMetered(EnvoyS):
     
     _NET_CONSUMPTION = _CONS.format("net-consumption")
     
-    consumption = JsonDescriptor(
+    consumption1 = JsonDescriptor(
         _TOTAL_CONSUMPTION + ".wNow",
         "production.json",
     )
@@ -739,3 +750,12 @@ class EnvoySMetered(EnvoyS):
     #     else:
     #         return "not_supported"
     
+
+
+gateway = EnvoySMetered()
+print("Required endpoints: ", gateway._gateway_properties)
+print(gateway.production)
+
+
+
+
