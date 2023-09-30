@@ -337,14 +337,14 @@ async def async_setup_entry(
             for description in ENCHARGE_AGG_POWER_SENSORS
         )
 
-    if data := coordinator.data.encharge_inventory and encharge_device:
+    if (data := coordinator.data.encharge_inventory) and encharge_device:
         entities.extend(
             EnchargeInventoryEntity(coordinator, description, encharge)
             for description in ENCHARGE_INVENTORY_SENSORS
             for encharge in data
         )
 
-    if data := coordinator.data.encharge_power and encharge_device:
+    if (data := coordinator.data.encharge_power) and encharge_device:
         entities.extend(
             EnchargePowerEntity(coordinator, description, encharge)
             for description in ENCHARGE_POWER_SENSORS
