@@ -118,18 +118,69 @@ class BaseGateway:
     """
     VERBOSE_NAME = "Enphase Gateway"
 
-    _gateway_properties = {}
-    _gateway_probes = {}
+    #_gateway_properties = {}
+    #_gateway_probes = {}
     
     def __new__(cls, *args, **kwargs):
         """Create a new instance."""
-        for name, method in cls.__dict__.items():
-            # print(name, cls)
+        instance = super().__new__(cls)
+        gateway_properties = {}
+        gateway_probes = {}
+
+        for obj in [instance.__class__] + instance.__class__.mro():
+            for name, method in obj.__dict__.items():
+                # add gateway properties that have been added to the classes
+                # _gateway_properties dict by descriptors.
+                if name == "_gateway_properties":
+                    print("Name", name)
+                    for key, val in method.items():
+                        gateway_properties.setdefault(key, val)
+
+                # catch flagged methods and add to instance's
+                # _gateway_properties or _gateway_probes.
+                if endpoint := getattr(method, "gateway_property", None):
+                    if gateway_properties.setdefault(name, endpoint) is endpoint:
+                        setattr(instance.__class__, name, property(method))
+                elif endpoint := getattr(method, "gateway_probe", None):
+                    gateway_probes.setdefault(name, endpoint)
+
+        instance._gateway_properties = gateway_properties
+        instance._gateway_probes = gateway_probes
+        return instance
+        
+        
+        
+        # print(f"Dir: {dir(cls)} \n")
+        # print(f"Dict: {cls.__dict__}\n")
+        
+        new = [obj.__dict__.items() for obj in [cls] + cls.mro()]
+        
+        required = {}
+        print(new)
+        #for obj in [cls] + cls.mro():
+        for name, method in new:# obj.__dict__.items():
+            
+            if name == "_gateway_properties":
+                for key, val in method.items():
+                    required.setdefault(key, val)    
+
+            #print(name, obj)
             if endpoint := getattr(method, "gateway_property", None):
-                cls._gateway_properties[name] = endpoint
+                required.setdefault(name, endpoint)
+                #obj._gateway_properties[name] = endpoint
                 setattr(cls, name, property(method))
         
-        return super().__new__(cls, *args, **kwargs)
+        instance = super().__new__(cls)
+        instance._test = required
+        
+        # print(f"Dict instance:\n")
+        for obj in [instance.__class__] + instance.__class__.mro():
+            for name, method in obj.__dict__.items():
+                pass
+                # print(f"Name: {name}  Method: {method}")
+        
+        
+        return instance
     
     
     
@@ -182,6 +233,19 @@ class BaseGateway:
         
         _LOGGER.debug(f"properties registered: {self._gateway_properties.items()}")
         #for prop, prop_endpoint in GATEWAY_PROPERTIES.items():
+        
+   
+        
+        required = {}
+        for obj in [self.__class__] + self.__class__.mro():
+            for name, method in obj.__dict__.items():
+                if name == "_gateway_properties":
+                    for key, val in method.items():
+                        required.setdefault(key, val)
+        
+        #print(f"required: {required} \n")
+        
+        
         for prop, prop_endpoint in self._gateway_properties.items():
             if isinstance(prop_endpoint, GatewayEndpoint):
                 
@@ -309,8 +373,10 @@ class BaseGateway:
 
 class EnvoyLegacy(BaseGateway):
     """Enphase(R) Envoy-R Gateway using FW < R3.9."""
-    
+    #_gateway_properties = {}
     VERBOSE_NAME = "Envoy-R"
+    
+    #_gateway_properties = {}
     
     production = RegexDescriptor(
         "production_legacy",
@@ -335,7 +401,7 @@ class EnvoyLegacy(BaseGateway):
 
 class Envoy(BaseGateway):
     """Enphase(R) Envoy-R Gateway using FW >= R3.9."""
-    
+    #_gateway_properties = {}
     VERBOSE_NAME = "Envoy-R"
     
     _ENDPOINT = "api/v1/production"
@@ -360,7 +426,7 @@ class Envoy(BaseGateway):
 
 class EnvoyS(Envoy):
     """Enphase(R) Envoy-S Standard Gateway."""
-    
+    #_gateway_properties = {}
     VERBOSE_NAME = "Envoy-S Standard"
     
     ensemble_inventory = JsonDescriptor("", "ivp/ensemble/inventory")
@@ -476,13 +542,13 @@ class EnvoyS(Envoy):
         return ensemble_storage | acb_storage
 
 
-class EnvoySMeteredNew(EnvoyS):
+class EnvoySMetered(EnvoyS):
     """Enphase(R) Envoy Model S Metered Gateway.
     
     This is the default gateway for metered envoy-s gateways.
     It further provides the method 'get_abnormal' to get the 
     """
-    
+    #_gateway_properties = {}
     
     VERBOSE_NAME = "Envoy-S Metered"
     
@@ -634,9 +700,9 @@ class EnvoySMeteredNew(EnvoyS):
     
     
         
-class EnvoySMetered(EnvoyS):
+class EnvoySMeteredAbnormal(EnvoyS):
     """Enphase(R) Envoy Model S Metered Gateway."""
-    
+    #_gateway_properties = {}
     VERBOSE_NAME = "Envoy-S Metered"
     
     _PRODUCTION = "production[?(@.type=='eim' && @.activeCount > 0)]"
@@ -647,7 +713,7 @@ class EnvoySMetered(EnvoyS):
     
     _NET_CONSUMPTION = _CONS.format("net-consumption")
     
-    consumption1 = JsonDescriptor(
+    consumption = JsonDescriptor(
         _TOTAL_CONSUMPTION + ".wNow",
         "production.json",
     )
@@ -696,7 +762,7 @@ class EnvoySMetered(EnvoyS):
     @gateway_property(required_endpoint="production.json")
     def production(self):
         """Energy production."""
-        data = self.data.get("production.json", {})
+        data = self.data.get("production.json1", {})
         return JsonDescriptor.resolve(self._PRODUCTION + ".wNow", data)
 
     @gateway_property(required_endpoint="production.json")
@@ -751,11 +817,19 @@ class EnvoySMetered(EnvoyS):
     #         return "not_supported"
     
 
-
+#print(EnvoyS._gateway_properties)
+#print("")
 gateway = EnvoySMetered()
-print("Required endpoints: ", gateway._gateway_properties)
-print(gateway.production)
 
+#print(Envoy.inverters_production)
+
+
+#print("Required endpoints: ", gateway._gateway_properties)
+print(gateway._gateway_properties)
+print("")
+print(gateway.required_endpoints)
+
+print(gateway.production)
 
 
 

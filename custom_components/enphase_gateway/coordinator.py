@@ -16,6 +16,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.storage import Store
 import homeassistant.util.dt as dt_util
 
+from .const import ALLOWED_ENDPOINTS
 from .gateway_reader.auth import EnphaseTokenAuth
 from .gateway_reader.exceptions import (
     INVALID_AUTH_ERRORS,
@@ -180,7 +181,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
                 if not self._setup_complete:
                     await self._async_setup_and_authenticate()
                     self._async_mark_setup_complete()
-                await gateway_reader.update()
+                await gateway_reader.update(limit_endpoints=ALLOWED_ENDPOINTS)
                 return gateway_reader.gateway
 
             except GatewayAuthenticationError as err: # TODO: improve

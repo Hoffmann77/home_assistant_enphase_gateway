@@ -20,6 +20,7 @@ from .exceptions import CannotConnect
 from .const import (
     DOMAIN, CONF_SERIAL_NUM, CONF_CACHE_TOKEN, CONF_USE_LEGACY_NAME, 
     CONF_ENCHARGE_ENTITIES, CONFIG_FLOW_USER_ERROR, CONF_INVERTERS,
+    ALLOWED_ENDPOINTS,
 )
 
 
@@ -42,7 +43,7 @@ async def validate_input(
     )
     await gateway_reader.setup()
     await gateway_reader.authenticate(username=username, password=password)
-    await gateway_reader.update()
+    await gateway_reader.update(limit_endpoints=ALLOWED_ENDPOINTS)
     return gateway_reader
 
 

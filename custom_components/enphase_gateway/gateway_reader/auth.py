@@ -411,7 +411,7 @@ class EnphaseTokenAuth(GatewayAuth):
         if token is None:
             if fail_silent:
                 return None
-            raise InvalidTokenError(f"Invalid token: {token}")
+            raise InvalidTokenError(f"Invalid token: '{token[:9]}...'")
 
         try:
             resp = await async_get(
@@ -426,7 +426,9 @@ class EnphaseTokenAuth(GatewayAuth):
                 _LOGGER.debug(f"Error while checking token: {err}")
                 if fail_silent:
                     return None
-                raise InvalidTokenError(f"Invalid token: {token[:6]}") from err
+                raise InvalidTokenError(
+                    f"Invalid token: '{token[:9]}...'"
+                ) from err
 
         except httpx.TransportError as err:
             _LOGGER.debug(f"Transport Error while checking token: {err}")
@@ -441,13 +443,13 @@ class EnphaseTokenAuth(GatewayAuth):
             soup = BeautifulSoup(resp.text, features="html.parser")
             validity = soup.find("h2").contents[0]
             if validity == "Valid token.":
-                _LOGGER.debug(f"Valid token: {token[:6]}")
+                _LOGGER.debug(f"Valid token: '{token[:9]}...'")
                 return resp.cookies
             else:
-                _LOGGER.debug(f"Invalid token: {token[:6]}")
+                _LOGGER.debug(f"Invalid token: '{token[:9]}...'")
                 if fail_silent:
                     return None
-                raise InvalidTokenError(f"Invalid token: {token[:6]}")
+                raise InvalidTokenError(f"Invalid token: '{token[:9]}...'")
 
     async def _token_refreshed(self):
         """Signal for refreshed token."""
@@ -461,7 +463,9 @@ class EnphaseTokenAuth(GatewayAuth):
                 token_json = json.load(f)
             return token_json.get("EnphaseToken")
 
-        _LOGGER.debug(f"Error loading token from cache: {self._cache_filepath}")
+        _LOGGER.debug(
+            f"Error loading token from cache: {self._cache_filepath}"
+        )
         return None
 
     async def _save_token_to_cache(self, token_raw: str) -> None:

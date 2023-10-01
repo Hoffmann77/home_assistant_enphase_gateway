@@ -6,7 +6,7 @@ from textwrap import dedent
 
 from jsonpath import jsonpath
 
-from endpoint import GatewayEndpoint # removed .
+from .endpoint import GatewayEndpoint
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,14 +22,18 @@ class BaseDescriptor:
 
     def __set_name__(self, owner, name) -> None:
         """Set name and owner of the descriptor."""
+        self._name = name
         if owner and name and self._required_endpoint:
             _endpoint = GatewayEndpoint(self._required_endpoint, self._cache)
-            owner._gateway_properties[name] = _endpoint
+            if prop := getattr(owner, "_gateway_properties", None):
+                prop[name] = _endpoint
+            else:
+                setattr(owner, "_gateway_properties", {name: _endpoint})
 
 
 class ResponseDescriptor(BaseDescriptor):
     """Descriptor returning the raw response."""
-    
+
     def __get__(self, obj, objtype):
         """Magic method. Return the response data."""
         data = obj.data.get(self._required_endpoint, {})

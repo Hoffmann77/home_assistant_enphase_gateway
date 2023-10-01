@@ -1,6 +1,7 @@
 """Read parameters from an Enphase(R) gateway on the local network."""
 
 import logging
+from collections.abc import Iterable
 
 import httpx
 from awesomeversion import AwesomeVersion
@@ -9,7 +10,7 @@ from homeassistant.util.network import is_ipv6_address
 
 from .http import async_get
 from .endpoint import GatewayEndpoint
-from .gateway import EnvoyLegacy, Envoy, EnvoyS, EnvoySMetered, EnvoySMeteredNew
+from .gateway import EnvoyLegacy, Envoy, EnvoyS, EnvoySMetered
 from .const import LEGACY_ENVOY_VERSION
 from .gateway_info import GatewayInfo
 from .auth import LegacyAuth, EnphaseTokenAuth
@@ -56,7 +57,6 @@ class GatewayReader:
         self._token = token
         self.endpoint_results = {}
         self.storages = {}
-        self.gateway_type = None
         self.gateway = None
         self.get_inverters = get_inverters
 
@@ -102,19 +102,35 @@ class GatewayReader:
         """Set up the gateway reader."""
         await self._info.update()
         await self._detect_model()
+        _LOGGER.debug(
+            "Gateway info: "
+            + f"part_number: {self._info.part_number}, "
+            + f"firmware_version: {self._info.firmware_version}, "
+            + f"imeter: {self._info.imeter}, "
+            + f"web_tokens: {self._info.web_tokens}"
+        )
+        _LOGGER.debug(f"Gateway class: {self.gateway.__class__}")
 
-    async def update(self) -> None:
+    async def update(
+        self,
+        limit_endpoints: Iterable[str] | None = None
+    ) -> None:
         """Fetch endpoints and update data."""
-        # refresh token and GatewayInfo.
         await self._info.update()
         await self.auth.prepare(self._async_client)
 
-        # update endpoints
-        await self.update_endpoints()
-
         if self.gateway.initial_update_finished is False:
-            self.gateway.probe()
+            await self.update_endpoints(limit_endpoints=limit_endpoints)
+            self.gateway.run_probes()
+            if abnormal := self.gateway.get_abnormal():
+                self.gateway = abnormal
+                _LOGGER.debug(
+                    f"Gateway class abnormal: {self.gateway.__class__}"
+                )
             self.gateway.initial_update_finished = True
+        else:
+            # update endpoints
+            await self.update_endpoints(limit_endpoints=limit_endpoints)
 
     async def authenticate(
         self,
@@ -127,7 +143,7 @@ class GatewayReader:
     ) -> None:
         """Authenticate to the Enphase gateway based on firmware version."""
         if not self._info.populated:
-            return # TODO add logic
+            return  # TODO add logic
 
         if self._info.web_tokens:
             _LOGGER.debug("Using EnphaseTokenAuth for authentication.")
@@ -176,23 +192,16 @@ class GatewayReader:
     async def _detect_model(self) -> None:
         """Detect the Enphase gateway model.
 
-        Detect model based on info.xml parmeters.
+        Detect gateway model based on info.xml parmeters.
 
         """
         if self.firmware_version < LEGACY_ENVOY_VERSION:
-            self.gateway_type = "ENVOY_MODEL_LEGACY"
             self.gateway = EnvoyLegacy()
-
         elif self._info.imeter and self._info.imeter == "true":
-            self.gateway_type = "ENVOY_MODEL_S_METERED"
-            self.gateway = EnvoySMeteredNew() # EnvoySMetered()
-
+            self.gateway = EnvoySMetered()
         elif self._info.imeter and self._info.imeter == "false":
-            self.gateway_type = "ENVOY_MODEL_S_STANDARD"
             self.gateway = EnvoyS()
-
         else:
-            self.gateway_type = "ENVOY_MODEL_R"
             self.gateway = Envoy()
 
     def _get_async_client(self) -> httpx.AsyncClient:
@@ -202,11 +211,16 @@ class GatewayReader:
             timeout=10
         )
 
-    async def update_endpoints(self) -> None:
+    async def update_endpoints(
+        self,
+        limit_endpoints: Iterable[str] | None = None,
+    ) -> None:
         """Update endpoints."""
         endpoints = self.gateway.required_endpoints
         _LOGGER.debug(f"Updating endpoints: {endpoints}")
         for endpoint in endpoints:
+            # if limit_endpoints and endpoint.path not in limit_endpoints:
+            #     continue #TODO: breaks integration
             _LOGGER.debug(
                 f"Endpoint info: {endpoint._last_fetch}, {endpoint.cache}"
             )

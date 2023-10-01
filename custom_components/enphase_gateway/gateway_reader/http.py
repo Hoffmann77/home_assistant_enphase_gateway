@@ -15,9 +15,9 @@ async def async_get(
     retries: int = 2,
     raise_for_status: bool = True,
     **kwargs
-    ):
+) -> httpx.Response:
     """Send a HTTP GET request using httpx.
-    
+
     Parameters
     ----------
     url : str
@@ -42,28 +42,23 @@ async def async_get(
         HTTP GET response.
 
     """
-    #async with async_client as client:
     for attempt in range(1, retries+2):
-        _LOGGER.debug(
-            f"HTTP GET Attempt #{attempt}: {url}: kwargs: {kwargs}"
-        )
+        _base_msg = f"HTTP GET Attempt #{attempt}: {url}"
         try:
             resp = await async_client.get(url, **kwargs)
-            _LOGGER.debug(
-                f"Response: HTTP GET #{attempt}: {resp}: {resp.text}")
             if raise_for_status:
                 resp.raise_for_status()
         except httpx.TransportError as err:
             if attempt >= retries+1:
-                _LOGGER.debug(
-                    f"Transport Error: HTTP GET Attempt #{attempt}: {err}"
-                )
+                _LOGGER.debug(f"{_base_msg}: Transport Error: {err}")
                 raise err
             else:
                 await asyncio.sleep(attempt * 0.10)
                 continue
         else:
-            _LOGGER.debug(f"Success: HTTP GET Attempt #{attempt}")
+            _LOGGER.debug(
+                f"{_base_msg}: Response: {resp}: length: {len(resp.text)}"
+            )
             return resp
 
 

@@ -37,7 +37,7 @@ async def async_setup_entry(
     name = coordinator.name
   
     entities = []
-    if (coordinator.data.get("grid_status") is not None):
+    if coordinator.data.get("grid_status") is not None:
       entities.append(
           EnvoyGridStatusEntity(
               GRID_STATUS_BINARY_SENSOR,
