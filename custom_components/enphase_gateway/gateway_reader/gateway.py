@@ -521,7 +521,7 @@ class EnvoySMetered(EnvoyS):
             self.data.get("production.json", {}),  
         )
         
-        if not prod_count:
+        if prod_count == 0:
             self._PRODUCTION = "production[?(@.type=='inverters')]"
             
         # self.production_ct = True if prod_count and prod_count > 0 else False
