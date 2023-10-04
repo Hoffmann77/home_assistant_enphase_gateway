@@ -209,7 +209,7 @@ class BaseGateway:
 
     def get_subclass(self):
         """Return the matching subclass."""
-        return self
+        return None
 
     def set_endpoint_data(
             self,
