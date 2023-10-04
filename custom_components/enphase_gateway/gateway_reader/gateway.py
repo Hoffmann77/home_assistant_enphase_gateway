@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import xmltodict
-from typing import TYPE_CHECKING, Callable
+from typing import Callable
 
 from httpx import Response
 
@@ -12,16 +12,10 @@ from .const import AVAILABLE_PROPERTIES
 from .endpoint import GatewayEndpoint
 from .descriptors import ResponseDescriptor, JsonDescriptor, RegexDescriptor
 
-# from .models.ac_battery import ACBattery
-
-if TYPE_CHECKING:
-    from .gateway_reader import GatewayReader
-
 
 _LOGGER = logging.getLogger(__name__)
 
 
-# TODO fix type hint
 def gateway_property(_func: Callable | None = None, **kwargs) -> None:
     """Register an instance's method as a property of a gateway.
 
