@@ -41,7 +41,7 @@ async def validate_input(
         host,
         get_async_client(hass, verify_ssl=False)
     )
-    await gateway_reader.setup()
+    await gateway_reader.prepare()
     await gateway_reader.authenticate(username=username, password=password)
     await gateway_reader.update(limit_endpoints=ALLOWED_ENDPOINTS)
     return gateway_reader

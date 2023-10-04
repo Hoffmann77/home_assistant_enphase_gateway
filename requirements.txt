@@ -1,0 +1,6 @@
+###### Requirements ######
+
+respx
+httpx
+pytest
+awesomeversion >= 22.9.0

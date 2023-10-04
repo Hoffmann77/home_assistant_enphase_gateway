@@ -32,7 +32,7 @@ class GatewayAuth:
     """Base class for gateway authentication."""
 
     def __init__(self) -> None:
-        """Initialize gateway authentication class."""
+        """Initialize GatewayAuth."""
         pass
 
     @abstractmethod
@@ -239,10 +239,10 @@ class EnphaseTokenAuth(GatewayAuth):
 
     async def prepare(self, async_client: httpx.AsyncClient) -> None:
         """Prepare class for token authentication."""
-        _LOGGER.debug(
-            f"Preparing authentication method: {self.__class__.__name__}"
-        )
         if not self._token:
+            _LOGGER.debug(
+                "Token not found - setting up token for authentication"
+            )
             await self._setup_token(async_client)
 
         if self.is_stale:
@@ -264,6 +264,9 @@ class EnphaseTokenAuth(GatewayAuth):
                 )
 
         if not self.cookies:
+            _LOGGER.debug(
+                "Cookies not found - refreshing cookies"
+            )
             await self.refresh_cookies(async_client)
 
     async def refresh_token(self) -> None:

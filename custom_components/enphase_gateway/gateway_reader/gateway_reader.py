@@ -39,9 +39,9 @@ class GatewayReader:
     def __init__(
             self,
             host: str,
-            username: str | None = None,
-            password: str | None = None,
-            token: str | None = None,
+            # username: str | None = None,
+            # password: str | None = None,
+            # token: str | None = None,
             async_client: httpx.AsyncClient | None = None,
             get_inverters=False,
     ) -> None:
@@ -52,13 +52,13 @@ class GatewayReader:
         self.auth = None
         self._async_client = async_client or self._get_async_client()
         self._info = GatewayInfo(self.host, self._async_client)
-        self._username = username
-        self._password = password
-        self._token = token
-        self.endpoint_results = {}
-        self.storages = {}
+        # self._username = username
+        # self._password = password
+        # self._token = token
+        # self.endpoint_results = {}
+        # self.storages = {}
         self.gateway = None
-        self.get_inverters = get_inverters
+        # self.get_inverters = get_inverters
 
     @property
     def name(self) -> str | None:
@@ -98,8 +98,8 @@ class GatewayReader:
 
         return dict(iter())
 
-    async def setup(self):
-        """Set up the gateway reader."""
+    async def prepare(self):
+        """Prepare the gateway reader."""
         await self._info.update()
         await self._detect_model()
         _LOGGER.debug(
@@ -109,7 +109,7 @@ class GatewayReader:
             + f"imeter: {self._info.imeter}, "
             + f"web_tokens: {self._info.web_tokens}"
         )
-        _LOGGER.debug(f"Gateway class: {self.gateway.__class__}")
+        _LOGGER.debug(f"Initial Gateway class: {self.gateway.__class__}")
 
     async def update(
         self,
@@ -118,19 +118,16 @@ class GatewayReader:
         """Fetch endpoints and update data."""
         await self._info.update()
         await self.auth.prepare(self._async_client)
+        await self.update_endpoints(limit_endpoints=limit_endpoints)
 
         if self.gateway.initial_update_finished is False:
-            await self.update_endpoints(limit_endpoints=limit_endpoints)
             self.gateway.run_probes()
-            if abnormal := self.gateway.get_abnormal():
-                self.gateway = abnormal
-                _LOGGER.debug(
-                    f"Gateway class abnormal: {self.gateway.__class__}"
-                )
+            if subclass := self.gateway.get_subclass():
+                self.gateway = subclass
+                await self.update_endpoints(limit_endpoints=limit_endpoints)
+
+            _LOGGER.debug(f"Gateway class: {self.gateway.__class__.__name__}")
             self.gateway.initial_update_finished = True
-        else:
-            # update endpoints
-            await self.update_endpoints(limit_endpoints=limit_endpoints)
 
     async def authenticate(
         self,
@@ -177,7 +174,9 @@ class GatewayReader:
                     username,
                     self._info.serial_number
                 )
-
+        _LOGGER.debug(
+            f"Using authentication class: {self.auth.__class__.__name__}"
+        )
         if not self.auth:
             _LOGGER.error(
                 "You must include username/password or a token"
@@ -212,20 +211,18 @@ class GatewayReader:
         )
 
     async def update_endpoints(
-        self,
-        limit_endpoints: Iterable[str] | None = None,
+            self,
+            limit_endpoints: Iterable[str] | None = None,
+            force_update: bool = False,
     ) -> None:
         """Update endpoints."""
         endpoints = self.gateway.required_endpoints
         _LOGGER.debug(f"Updating endpoints: {endpoints}")
         for endpoint in endpoints:
+            # TODO: fix below line breaking integration
             # if limit_endpoints and endpoint.path not in limit_endpoints:
-            #     continue #TODO: breaks integration
-            _LOGGER.debug(
-                f"Endpoint info: {endpoint._last_fetch}, {endpoint.cache}"
-            )
-            if endpoint.update_required:
-                _LOGGER.debug(f"Endpoint update required: {endpoint}")
+            #     continue
+            if endpoint.update_required or force_update is True:
                 await self._update_endpoint(endpoint)
                 endpoint.success()
 

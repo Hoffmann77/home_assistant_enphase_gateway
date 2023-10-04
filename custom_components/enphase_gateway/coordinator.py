@@ -71,7 +71,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
     async def _async_setup_and_authenticate(self) -> None:
         """Set up the gateway reader and authenticate."""
         gateway_reader = self.gateway_reader
-        await gateway_reader.setup()
+        await gateway_reader.prepare()
         if not gateway_reader.serial_number:
             return # TODO add logic
 

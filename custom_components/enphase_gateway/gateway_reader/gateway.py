@@ -106,7 +106,7 @@ class BaseGateway:
     def __new__(cls, *args, **kwargs):
         """Create a new instance.
 
-        Catch methods with the 'gateway_property' attribute and add them
+        Catch methods having the 'gateway_property' attribute and add them
         to the classes '_gateway_properties' attribute.
         Set the method as a property of the class.
 
@@ -135,25 +135,11 @@ class BaseGateway:
         instance._gateway_properties = gateway_properties
         instance._gateway_probes = gateway_probes
         return instance
-        
-        
-        
-        
-        
-        # for obj in [cls] + cls.mro():
-        #     for name, method in obj.__dict__.items():
-        #         if endpoint := getattr(method, "gateway_property", None):
-        #             obj._gateway_properties[name] = endpoint  # TODO: think about this noqa
-        #             setattr(obj, name, property(method))
-        #         if endpoint := getattr(method, "gateway_probe", None):
-        #             obj._gateway_probes[name] = endpoint
 
-        # return super().__new__(cls)  # TODO: think about args kwargs noqa
-
-    def __init__(self) -> None:
+    def __init__(self, gateway_info=None) -> None:
         """Initialize instance of BaseGateway."""
         self.data = {}
-        self.gateway_info = None
+        self.gateway_info = gateway_info
         self.initial_update_finished = False
         self._required_endpoints = None
         self._probes_finished = False
@@ -170,7 +156,7 @@ class BaseGateway:
         Returns
         -------
         result
-            Dict containing all attributes with their value.
+            Dict containing all attributes and their value.
 
         """
         result = {}
@@ -228,27 +214,12 @@ class BaseGateway:
 
         return endpoints.values()
 
-    # def register_property(endpoint, name):
-    #     GATEWAY_PROPERTIES[name] = endpoint
-        
-
-    # def update_required_endpoints(self):
-        
-    #     endpoints_new = {}
-    #     for endpoint in self._gateway_properties:
-    #         _endpoint = endpoints_new.get(endpoint.path)
-    #         if _endpoint == None:
-    #             endpoints_new[endpoint.path] = endpoint
-            
-    #         elif endpoint.cache < _endpoint.cache:
-    #             _endpoint.cache = endpoint.cache
-
-    def get_abnormal(self):
+    def get_subclass(self):
         """Return the matching subclass."""
-        return None
+        return self
 
     def set_endpoint_data(
-            self, 
+            self,
             endpoint: GatewayEndpoint,
             response: Response
     ) -> None:
@@ -281,6 +252,7 @@ class BaseGateway:
 
     def run_probes(self):
         """Run all registered probes of the gateway."""
+        _LOGGER.debug(f"Registered probes: {self._gateway_probes.keys()}")
         for probe in self._gateway_probes.keys():
             getattr(self, probe)()
             self._probes_finished = True
@@ -508,14 +480,14 @@ class EnvoySMetered(EnvoyS):
         self.net_consumption_meter = None
         self.total_consumption_meter = None
 
-    def get_abnormal(self):
-        """Return the abnormal subclass if necessary."""
+    def get_subclass(self):
+        """Return the subclass for abnormal gateway installations."""
         if self._probes_finished:
             consumption_meter = (
                 self.net_consumption_meter or self.total_consumption_meter
             )
             if not self.production_meter or not consumption_meter:
-                return EnvoySMeteredAbnormal(
+                return EnvoySMeteredCtDisabled(
                     self.production_meter,
                     self.net_consumption_meter,
                     self.total_consumption_meter,
@@ -539,6 +511,7 @@ class EnvoySMetered(EnvoyS):
             base_expr.format("total-consumption"),
             self.data.get("ivp/meters", {}),
         )
+        _LOGGER.debug("Probe: 'ivp_meters_probe' finished")
 
     @gateway_property(required_endpoint="ivp/meters/readings")
     def grid_import(self):
@@ -641,10 +614,10 @@ class EnvoySMetered(EnvoyS):
         return None
 
 
-class EnvoySMeteredAbnormal(EnvoyS):
-    """Enphase(R) Envoy Model S Metered Gateway."""
+class EnvoySMeteredCtDisabled(EnvoyS):
+    """Enphase(R) Envoy Model S Metered Gateway with disabled CTs."""
 
-    VERBOSE_NAME = "Envoy-S Metered"
+    VERBOSE_NAME = "Envoy-S Metered without CTs"
 
     _CONS = "consumption[?(@.measurementType == '{}' && @.activeCount > 0)]"
 
