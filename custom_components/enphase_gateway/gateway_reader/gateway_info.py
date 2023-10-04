@@ -8,11 +8,7 @@ from lxml import etree
 from awesomeversion import AwesomeVersion
 
 from .http import async_get
-from .exceptions import (
-    EnvoyFirmwareCheckError,
-    EnvoyFirmwareFatalCheckError,
-    GatewayCommunicationError,
-)
+from .exceptions import GatewayCommunicationError
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,13 +31,12 @@ class GatewayInfo:
         Gateway web_tokens value.
     populated : bool
         If instance is populated.
-    
+
     Raises
     ------
-    
-    
-    
-    
+    GatewayCommunicationError
+        If communication with the gateway is not possible.
+
     """
 
     def __init__(self, host: str, async_client: httpx.AsyncClient) -> None:
@@ -69,26 +64,14 @@ class GatewayInfo:
             return
 
         try:
-            result = await self._get_info()
+            response = await self._get_info()
         except httpx.TransportError as err:
             raise GatewayCommunicationError(
-                "Transport error trying to communicate with gateway",
+                "Transport error while trying to communicate with gateway",
                 request=err.request,
             )
-        except httpx.TimeoutException:
-            raise EnvoyFirmwareFatalCheckError(
-                500, "Timeout connecting to Envoy"
-            )
-        except httpx.ConnectError:
-            raise EnvoyFirmwareFatalCheckError(
-                500, "Unable to connect to Envoy"
-            )
-        except httpx.HTTPError:
-            raise EnvoyFirmwareCheckError(
-                500, "Unable to query firmware version"
-            )
         else:
-            xml = etree.fromstring(result.content)
+            xml = etree.fromstring(response.content)
             if (device_tag := xml.find("device")) is not None:
                 # software version
                 if (software_tag := device_tag.find("software")) is not None:
@@ -111,7 +94,7 @@ class GatewayInfo:
             self._last_fetch = time.time()
             self.populated = True
 
-    async def _get_info(self) -> None:
+    async def _get_info(self) -> httpx.Response:
         """Fetch response from the info endpoint."""
         try:
             return await async_get(

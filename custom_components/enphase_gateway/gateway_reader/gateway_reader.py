@@ -1,4 +1,4 @@
-"""Read parameters from an Enphase(R) gateway on the local network."""
+"""Read parameters from an Enphase(R) gateway on your local network."""
 
 import logging
 from collections.abc import Iterable
@@ -14,51 +14,46 @@ from .gateway import EnvoyLegacy, Envoy, EnvoyS, EnvoySMetered
 from .const import LEGACY_ENVOY_VERSION
 from .gateway_info import GatewayInfo
 from .auth import LegacyAuth, EnphaseTokenAuth
-from .exceptions import GatewayAuthenticationRequired
+from .exceptions import GatewayAuthenticationRequired, GatewaySetupError
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class GatewayReader:
-    """Instance of EnvoyReader."""
+    """Class to retrieve data from an Enphase gateway.
 
-    MESSAGES = {
-        "daily_production_not_available":
-            "Daily production data not available for your Envoy device.",
-        "seven_day_production_not_available":
-            "Seven day production data not available for your Envoy device.",
-        "battery_not_available":
-            "Battery storage data not available for your Envoy device.",
-        "consumption_not_available":
-            "Consumption data not available for your Envoy device.",
-        "grid_status_not_available":
-            "Grid status not available for your Envoy device.",
-    }
+    Parameters
+    ----------
+    host : str
+        Hostname of the Gateway.
+    async_client : httpx.AsyncClient, optional
+        httpx async client. A client will be created if no client is provided.
+
+    Attributes
+    ----------
+    host : str
+        Hostname of the Gateway.
+    auth : {LegacyAuth, EnphaseTokenAuth}
+        Gateway authentication class.
+    gateway : Gateway class.
+        Gateway class used to access gateway data.
+
+    """
 
     def __init__(
             self,
             host: str,
-            # username: str | None = None,
-            # password: str | None = None,
-            # token: str | None = None,
             async_client: httpx.AsyncClient | None = None,
-            get_inverters=False,
     ) -> None:
-        """Initialize instance of EnvoyReader."""
+        """Initialize instance of GatewayReader."""
         self.host = host.lower()
         if is_ipv6_address(self.host):
             self.host = f"[{self.host}]"
         self.auth = None
+        self.gateway = None
         self._async_client = async_client or self._get_async_client()
         self._info = GatewayInfo(self.host, self._async_client)
-        # self._username = username
-        # self._password = password
-        # self._token = token
-        # self.endpoint_results = {}
-        # self.storages = {}
-        self.gateway = None
-        # self.get_inverters = get_inverters
 
     @property
     def name(self) -> str | None:
@@ -69,37 +64,32 @@ class GatewayReader:
 
     @property
     def serial_number(self) -> str | None:
-        """Return the Envoy serial number."""
+        """Return the gateway's serial number."""
         return self._info.serial_number
 
     @property
     def part_number(self) -> str | None:
-        """Return the Envoy part number."""
+        """Return the gateway's part number."""
         return self._info.part_number
 
     @property
     def firmware_version(self) -> AwesomeVersion:
-        """Return the Envoy firmware version."""
+        """Return the gateway's firmware version."""
         return self._info.firmware_version
 
     @property
     def is_ready(self) -> bool:
-        """Return the status."""
-        if self._info.setup_complete and self.auth and self.gateway:
+        """Return the setup status of the gateway."""
+        if self._info.populated and self.auth and self.gateway:
             return True
         return False
 
-    @property
-    def all_values(self):
-        """Return all values of the gateway."""
-        def iter():
-            for key, val in self.gateway.all_values.items():
-                yield key, val
-
-        return dict(iter())
-
     async def prepare(self):
-        """Prepare the gateway reader."""
+        """Prepare the gateway reader.
+
+        Update the gateway info and detect the gateway model.
+
+        """
         await self._info.update()
         await self._detect_model()
         _LOGGER.debug(
@@ -115,16 +105,19 @@ class GatewayReader:
         self,
         limit_endpoints: Iterable[str] | None = None
     ) -> None:
-        """Fetch endpoints and update data."""
+        """Update the gateway reader."""
         await self._info.update()
-        await self.auth.prepare(self._async_client)
+        await self.auth.update(self._async_client)
         await self.update_endpoints(limit_endpoints=limit_endpoints)
 
         if self.gateway.initial_update_finished is False:
             self.gateway.run_probes()
             if subclass := self.gateway.get_subclass():
                 self.gateway = subclass
-                await self.update_endpoints(limit_endpoints=limit_endpoints)
+                await self.update_endpoints(
+                    limit_endpoints=limit_endpoints,
+                    force_update=True,
+                )
 
             _LOGGER.debug(f"Gateway class: {self.gateway.__class__.__name__}")
             self.gateway.initial_update_finished = True
@@ -140,7 +133,10 @@ class GatewayReader:
     ) -> None:
         """Authenticate to the Enphase gateway based on firmware version."""
         if not self._info.populated:
-            return  # TODO add logic
+            raise GatewaySetupError(
+                "Gateway info missing. Please make sure to call 'prepare()' "
+                + "before you authenticate"
+            )
 
         if self._info.web_tokens:
             _LOGGER.debug("Using EnphaseTokenAuth for authentication.")
@@ -155,7 +151,6 @@ class GatewayReader:
                     cache_filepath=cache_path,
                     auto_renewal=auto_renewal,
                 )
-
         else:
             _LOGGER.debug("Using envoy/installer authentication.")
             if not username or username == "installer":
@@ -164,10 +159,8 @@ class GatewayReader:
                     self._info.serial_number,
                     username
                 )
-
             elif username == "envoy" and not password:
                 password = self._info.serial_number[:6]
-
             elif username and password:
                 self.auth = LegacyAuth(
                     self.host,
@@ -186,7 +179,7 @@ class GatewayReader:
                 "Could not setup an authentication method."
             )
 
-        await self.auth.prepare(self._async_client)
+        await self.auth.update(self._async_client)
 
     async def _detect_model(self) -> None:
         """Detect the Enphase gateway model.
@@ -265,67 +258,3 @@ class GatewayReader:
 
         else:
             return resp
-
-#     def run_in_console(self):
-#         """If running this module directly, print all the values in the console."""
-#         print("Reading...")
-#         loop = asyncio.get_event_loop()
-#         data_results = loop.run_until_complete(
-#             asyncio.gather(self.getData(), return_exceptions=False)
-#         )
-
-#         loop = asyncio.get_event_loop()
-#         results = loop.run_until_complete(
-#             asyncio.gather(
-#                 self.production(),
-#                 self.consumption(),
-#                 self.daily_production(),
-#                 self.daily_consumption(),
-#                 self.seven_days_production(),
-#                 self.seven_days_consumption(),
-#                 self.lifetime_production(),
-#                 self.lifetime_consumption(),
-#                 self.inverters_production(),
-#                 self.battery_storage(),
-#                 return_exceptions=False,
-#             )
-#         )
-
-#         print(f"production:              {results[0]}")
-#         print(f"consumption:             {results[1]}")
-#         print(f"daily_production:        {results[2]}")
-#         print(f"daily_consumption:       {results[3]}")
-#         print(f"seven_days_production:   {results[4]}")
-#         print(f"seven_days_consumption:  {results[5]}")
-#         print(f"lifetime_production:     {results[6]}")
-#         print(f"lifetime_consumption:    {results[7]}")
-#         if "401" in str(data_results):
-#             print(
-#                 "inverters_production:    Unable to retrieve inverter data - Authentication failure"
-#             )
-#         elif results[8] is None:
-#             print(
-#                 "inverters_production:    Inverter data not available for your Envoy device."
-#             )
-#         else:
-#             print(f"inverters_production:    {results[8]}")
-#         print(f"battery_storage:         {results[9]}")
-
-
-# if __name__ == "__main__":
-
-#     TESTREADER = GatewayReader(
-#         "192.168.178.",
-#         username="envoy",
-#         password="",
-#         gateway_serial_num=None,
-#         use_token_auth=False,
-#         token_raw=None,
-#         use_token_cache=False,
-#         token_cache_filepath=None,
-#         single_inverter_entities=False,
-#         inverters=False,
-#         async_client=None,
-#     )
-
-#     TESTREADER.run_in_console()

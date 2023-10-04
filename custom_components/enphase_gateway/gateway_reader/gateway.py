@@ -151,14 +151,7 @@ class BaseGateway:
 
     @property
     def all_values(self) -> dict:
-        """Return a dict containing all attributes.
-
-        Returns
-        -------
-        result
-            Dict containing all attributes and their value.
-
-        """
+        """Return a dict containing all attributes and their value."""
         result = {}
         for attr in self.properties:
             result[attr] = getattr(self, attr)
@@ -357,22 +350,6 @@ class EnvoyS(Envoy):
 
     ensemble_power = JsonDescriptor("devices:", "ivp/ensemble/power")
 
-    # @gateway_property(required_endpoint="ivp/ensemble/inventory")
-    # def ensemble_inventory(self):
-    #     """Ensemble inventory data."""
-    #     result = self.data.get("ivp/ensemble/inventory")
-    #     #result = JsonDescriptor.resolve("ensemble_inventory", self.data)
-    #     storages = {}
-    #     if result and isinstance(result, list):
-    #         for entry in result:
-    #             storage_type = entry.get("type")
-    #             if devices := entry.get("devices"):
-    #                 for device in devices:
-    #                     uid = f"{storage_type.lower()}_{device['serial_num']}" 
-    #                     storages[uid] = device
-
-    #     return storages
-
     @gateway_property(required_endpoint="ivp/ensemble/inventory")
     def encharge_inventory(self):
         """Ensemble inventory data.
@@ -403,17 +380,6 @@ class EnvoyS(Envoy):
             return {device["serial_num"]: device for device in result}
 
         return None
-
-        # storages = {}
-        # if result and isinstance(result, list):
-        #     for entry in result:
-        #         storage_type = entry.get("type")
-        #         if devices := entry.get("devices"):
-        #             for device in devices:
-        #                 uid = f"{storage_type.lower()}_{device['serial_num']}" noqa
-        #                 storages[uid] = device
-
-        # return storages
 
     # @gateway_property
     # def ac_battery(self) -> ACBattery | None:
@@ -458,8 +424,8 @@ class EnvoyS(Envoy):
 class EnvoySMetered(EnvoyS):
     """Enphase(R) Envoy Model S Metered Gateway.
 
-    This is the default gateway for metered envoy-s gateways.
-    It further provides the method 'get_abnormal' to get the
+    This is the default gateway for metered Envoy-s gateways.
+    It provides probes to detect abnormal configurations.
 
     """
 
@@ -516,25 +482,49 @@ class EnvoySMetered(EnvoyS):
     @gateway_property(required_endpoint="ivp/meters/readings")
     def grid_import(self):
         """Return grid import."""
-        # TODO: implement
+        if eid := self.net_consumption_meter:
+            power = JsonDescriptor.resolve(
+                f"$.[?(@.eid=={eid})].activePower",
+                self.data.get("ivp/meters/readings", {})
+            )
+            if isinstance(power, int):
+                return power if power > 0 else 0
+
         return None
 
     @gateway_property(required_endpoint="ivp/meters/readings")
     def grid_import_lifetime(self):
         """Return lifetime grid import."""
-        # TODO: implement
+        if eid := self.net_consumption_meter:
+            return JsonDescriptor.resolve(
+                f"$.[?(@.eid=={eid})].actEnergyDlvd",
+                self.data.get("ivp/meters/readings", {})
+            )
+
         return None
 
     @gateway_property(required_endpoint="ivp/meters/readings")
     def grid_export(self):
         """Return grid export."""
-        # TODO: implement
+        if eid := self.net_consumption_meter:
+            power = JsonDescriptor.resolve(
+                f"$.[?(@.eid=={eid})].activePower",
+                self.data.get("ivp/meters/readings", {})
+            )
+            if isinstance(power, int):
+                return (power * -1) if power < 0 else 0
+
         return None
 
     @gateway_property(required_endpoint="ivp/meters/readings")
     def grid_export_lifetime(self):
         """Return lifetime grid export."""
-        # TODO: implement
+        if eid := self.net_consumption_meter:
+            return JsonDescriptor.resolve(
+                f"$.[?(@.eid=={eid})].actEnergyRcvd",
+                self.data.get("ivp/meters/readings", {})
+            )
+
         return None
 
     @gateway_property(required_endpoint="ivp/meters/readings")

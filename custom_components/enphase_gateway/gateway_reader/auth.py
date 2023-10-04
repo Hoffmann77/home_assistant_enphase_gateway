@@ -36,8 +36,8 @@ class GatewayAuth:
         pass
 
     @abstractmethod
-    async def prepare(self, client: httpx.AsyncClient) -> None:
-        """Prepare the authentication class for authentication."""
+    async def update(self, client: httpx.AsyncClient) -> None:
+        """Update the authentication class for authentication."""
 
     @abstractproperty
     def protocol(self) -> str:
@@ -90,8 +90,8 @@ class LegacyAuth(GatewayAuth):
         """Return the cookies for legacy authentication."""
         return {}
 
-    async def prepare(self, client: httpx.AsyncClient) -> None:
-        """Set up authentication method."""
+    async def update(self, client: httpx.AsyncClient) -> None:
+        """Update authentication method."""
         pass  # No setup required
 
     async def resolve_401(self, async_client):
@@ -237,8 +237,8 @@ class EnphaseTokenAuth(GatewayAuth):
         """Return the URL for the endpoint."""
         return f"https://{self._host}{endpoint}"
 
-    async def prepare(self, async_client: httpx.AsyncClient) -> None:
-        """Prepare class for token authentication."""
+    async def update(self, async_client: httpx.AsyncClient) -> None:
+        """Update authentication method."""
         if not self._token:
             _LOGGER.debug(
                 "Token not found - setting up token for authentication"
@@ -297,7 +297,7 @@ class EnphaseTokenAuth(GatewayAuth):
         except InvalidTokenError:
             self._token = None
             self._cookies = None
-            self.prepare(async_client)
+            self.update(async_client)
 
     async def _setup_token(self, async_client: httpx.AsyncClient) -> None:
         """Set up the initial Enphase token."""
