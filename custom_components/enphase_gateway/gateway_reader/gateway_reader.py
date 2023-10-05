@@ -9,7 +9,7 @@ from envoy_utils.envoy_utils import EnvoyUtils
 
 from .http import async_get
 from .endpoint import GatewayEndpoint
-from .util import is_ipv6_address
+from .utils import is_ipv6_address
 from .gateway import EnvoyLegacy, Envoy, EnvoyS, EnvoySMetered
 from .const import LEGACY_ENVOY_VERSION
 from .gateway_info import GatewayInfo
