@@ -1,7 +1,11 @@
 ###### Requirements ######
+jwt
 respx
 httpx
 pytest
+orjson
+envoy-utils
+beautifulsoup4
 jsonpath
 homeassistant
 awesomeversion >= 22.9.0
