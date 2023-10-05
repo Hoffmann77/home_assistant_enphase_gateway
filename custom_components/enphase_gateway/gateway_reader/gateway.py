@@ -535,7 +535,7 @@ class EnvoySMetered(EnvoyS):
             self.data.get("ivp/meters/readings", {})
         )
 
-    @gateway_property(required_endpoint="production.json", cache=120)
+    @gateway_property(required_endpoint="production.json", cache=0)
     def daily_production(self):
         """Return the daily energy production."""
         return JsonDescriptor.resolve(
@@ -543,7 +543,7 @@ class EnvoySMetered(EnvoyS):
             self.data.get("production.json", {})
         )
 
-    @gateway_property(required_endpoint="production.json", cache=120)
+    @gateway_property(required_endpoint="production.json", cache=0)
     def seven_days_production(self):
         """Return the daily energy production."""
         return JsonDescriptor.resolve(
@@ -573,7 +573,7 @@ class EnvoySMetered(EnvoyS):
 
         return None
 
-    @gateway_property(required_endpoint="production.json", cache=120)
+    @gateway_property(required_endpoint="production.json", cache=0)
     def daily_consumption(self):
         """Return the daily energy production."""
         return JsonDescriptor.resolve(
@@ -581,7 +581,7 @@ class EnvoySMetered(EnvoyS):
             self.data.get("production.json", {})
         )
 
-    @gateway_property(required_endpoint="production.json", cache=120)
+    @gateway_property(required_endpoint="production.json", cache=0)
     def seven_days_consumption(self):
         """Return the daily energy production."""
         return JsonDescriptor.resolve(
