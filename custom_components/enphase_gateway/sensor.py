@@ -348,7 +348,7 @@ async def async_setup_entry(
     options = config_entry.options
     conf_inverters = options.get(CONF_INVERTERS, False)
     conf_encharge_entity = options.get(CONF_ENCHARGE_ENTITIES, False)
-    base_sensors = PRODUCTION_SENSORS + CONSUMPTION_SENSORS + GRID_SENSORS
+    base_sensors = PRODUCTION_SENSORS + CONSUMPTION_SENSORS  # + GRID_SENSORS
     entities = []
 
     for sensor_description in base_sensors:

@@ -473,53 +473,53 @@ class EnvoySMetered(EnvoyS):
         )
         _LOGGER.debug("Probe: 'ivp_meters_probe' finished")
 
-    @gateway_property(required_endpoint="ivp/meters/readings")
-    def grid_import(self):
-        """Return grid import."""
-        if eid := self.net_consumption_meter:
-            power = JsonDescriptor.resolve(
-                f"$.[?(@.eid=={eid})].activePower",
-                self.data.get("ivp/meters/readings", {})
-            )
-            if isinstance(power, int):
-                return power if power > 0 else 0
+    # @gateway_property(required_endpoint="ivp/meters/readings")
+    # def grid_import(self):
+    #     """Return grid import."""
+    #     if eid := self.net_consumption_meter:
+    #         power = JsonDescriptor.resolve(
+    #             f"$.[?(@.eid=={eid})].activePower",
+    #             self.data.get("ivp/meters/readings", {})
+    #         )
+    #         if isinstance(power, int):
+    #             return power if power > 0 else 0
 
-        return None
+    #     return None
 
-    @gateway_property(required_endpoint="ivp/meters/readings")
-    def grid_import_lifetime(self):
-        """Return lifetime grid import."""
-        if eid := self.net_consumption_meter:
-            return JsonDescriptor.resolve(
-                f"$.[?(@.eid=={eid})].actEnergyDlvd",
-                self.data.get("ivp/meters/readings", {})
-            )
+    # @gateway_property(required_endpoint="ivp/meters/readings")
+    # def grid_import_lifetime(self):
+    #     """Return lifetime grid import."""
+    #     if eid := self.net_consumption_meter:
+    #         return JsonDescriptor.resolve(
+    #             f"$.[?(@.eid=={eid})].actEnergyDlvd",
+    #             self.data.get("ivp/meters/readings", {})
+    #         )
 
-        return None
+    #     return None
 
-    @gateway_property(required_endpoint="ivp/meters/readings")
-    def grid_export(self):
-        """Return grid export."""
-        if eid := self.net_consumption_meter:
-            power = JsonDescriptor.resolve(
-                f"$.[?(@.eid=={eid})].activePower",
-                self.data.get("ivp/meters/readings", {})
-            )
-            if isinstance(power, int):
-                return (power * -1) if power < 0 else 0
+    # @gateway_property(required_endpoint="ivp/meters/readings")
+    # def grid_export(self):
+    #     """Return grid export."""
+    #     if eid := self.net_consumption_meter:
+    #         power = JsonDescriptor.resolve(
+    #             f"$.[?(@.eid=={eid})].activePower",
+    #             self.data.get("ivp/meters/readings", {})
+    #         )
+    #         if isinstance(power, int):
+    #             return (power * -1) if power < 0 else 0
 
-        return None
+    #     return None
 
-    @gateway_property(required_endpoint="ivp/meters/readings")
-    def grid_export_lifetime(self):
-        """Return lifetime grid export."""
-        if eid := self.net_consumption_meter:
-            return JsonDescriptor.resolve(
-                f"$.[?(@.eid=={eid})].actEnergyRcvd",
-                self.data.get("ivp/meters/readings", {})
-            )
+    # @gateway_property(required_endpoint="ivp/meters/readings")
+    # def grid_export_lifetime(self):
+    #     """Return lifetime grid export."""
+    #     if eid := self.net_consumption_meter:
+    #         return JsonDescriptor.resolve(
+    #             f"$.[?(@.eid=={eid})].actEnergyRcvd",
+    #             self.data.get("ivp/meters/readings", {})
+    #         )
 
-        return None
+    #     return None
 
     @gateway_property(required_endpoint="ivp/meters/readings")
     def production(self):
