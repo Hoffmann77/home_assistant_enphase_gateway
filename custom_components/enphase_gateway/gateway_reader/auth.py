@@ -303,7 +303,11 @@ class EnphaseTokenAuth(GatewayAuth):
         """Set up the initial Enphase token."""
         if self._cache_token:
             token = await self._load_token_from_cache()
-            cookies = self._check_jwt(async_client, token, fail_silent=True)
+            cookies = await self._check_jwt(
+                async_client,
+                token,
+                fail_silent=True
+            )
             if token and cookies:
                 self._token = token
                 self._cookies = cookies

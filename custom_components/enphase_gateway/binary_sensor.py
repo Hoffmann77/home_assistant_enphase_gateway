@@ -12,8 +12,8 @@ from homeassistant.components.binary_sensor import (
 )
 
 from .const import DOMAIN, ICON
-from .coordinator import GatewayReaderUpdateCoordinator
-from .entity import GatewayBinarySensorBaseEntity
+# from .coordinator import GatewayReaderUpdateCoordinator
+# from .entity import GatewayBinarySensorBaseEntity
 
 
 GRID_STATUS_BINARY_SENSOR = (
@@ -26,80 +26,84 @@ GRID_STATUS_BINARY_SENSOR = (
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, 
-    config_entry: ConfigEntry, 
+    hass: HomeAssistant,
+    config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up gateway binary sensor platform."""
-    #data = hass.data[DOMAIN][config_entry.entry_id]
+    # data = hass.data[DOMAIN][config_entry.entry_id]
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
-    data = coordinator.data
+    # data = coordinator.data
     name = coordinator.name
-  
+
     entities = []
     if coordinator.data.get("grid_status") is not None:
-      entities.append(
-          EnvoyGridStatusEntity(
-              GRID_STATUS_BINARY_SENSOR,
-              GRID_STATUS_BINARY_SENSOR.name,
-              name,
-              config_entry.unique_id,
-              None,
-              coordinator,
-          )
-      )
-  
+        entities.append(
+            EnvoyGridStatusEntity(
+                GRID_STATUS_BINARY_SENSOR,
+                GRID_STATUS_BINARY_SENSOR.name,
+                name,
+                config_entry.unique_id,
+                None,
+                coordinator,
+            )
+        )
+
     async_add_entities(entities)
+
 
 # TODO: Refactor entities
 class EnvoyGridStatusEntity(CoordinatorEntity, BinarySensorEntity):
-  def __init__(
-      self,
-      description,
-      name,
-      device_name,
-      device_serial_number,
-      serial_number,
-      coordinator,
-  ):
-      self.entity_description = description
-      self._name = name
-      self._serial_number = serial_number
-      self._device_name = device_name
-      self._device_serial_number = device_serial_number
-      CoordinatorEntity.__init__(self, coordinator)
+    """Grid status entity."""
 
-  @property
-  def icon(self):
-      """Icon to use in the frontend, if any."""
-      return ICON
+    def __init__(
+            self,
+            description,
+            name,
+            device_name,
+            device_serial_number,
+            serial_number,
+            coordinator,
+    ) -> None:
+        self.entity_description = description
+        self._name = name
+        self._serial_number = serial_number
+        self._device_name = device_name
+        self._device_serial_number = device_serial_number
+        CoordinatorEntity.__init__(self, coordinator)
 
-  @property
-  def name(self):
-      """Return the name of the sensor."""
-      return self._name
+    @property
+    def icon(self):
+        """Icon to use in the frontend, if any."""
+        return ICON
 
-  @property
-  def unique_id(self):
-      """Return the unique id of the sensor."""
-      if self._serial_number:
-          return self._serial_number
-      if self._device_serial_number:
-          return f"{self._device_serial_number}_{self.entity_description.key}"
+    @property
+    def name(self):
+        """Return the name of the sensor."""
+        return self._name
 
-  @property
-  def device_info(self) -> DeviceInfo or None:
-      """Return the device_info of the device."""
-      if not self._device_serial_number:
-          return None
-      return DeviceInfo(
-          identifiers={(DOMAIN, str(self._device_serial_number))},
-          manufacturer="Enphase",
-          model="Envoy",
-          name=self._device_name,
-      )
+    @property
+    def unique_id(self):
+        """Return the unique id of the sensor."""
+        if self._serial_number:
+            return self._serial_number
+        if self._device_serial_number:
+            uid = f"{self._device_serial_number}_{self.entity_description.key}"
+            return uid
 
-  @property
-  def is_on(self) -> bool:
-      """Return the status of the requested attribute."""
-      return self.coordinator.data.get("grid_status") == "closed"
+    @property
+    def device_info(self) -> DeviceInfo or None:
+        """Return the device_info of the device."""
+        if not self._device_serial_number:
+            return None
+        return DeviceInfo(
+            identifiers={(DOMAIN, str(self._device_serial_number))},
+            manufacturer="Enphase",
+            model="Envoy",
+            name=self._device_name,
+        )
+
+    @property
+    def is_on(self) -> bool:
+        """Return the status of the requested attribute."""
+        return self.coordinator.data.get("grid_status") == "closed"

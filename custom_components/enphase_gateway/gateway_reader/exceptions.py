@@ -1,6 +1,6 @@
 """Custom exceptions module."""
 
-import httpx
+# import httpx
 
 
 class GatewayError(Exception):
