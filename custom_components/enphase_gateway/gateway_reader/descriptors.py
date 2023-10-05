@@ -89,7 +89,10 @@ class RegexDescriptor(BaseDescriptor):
 
     def __get__(self, obj, objtype=None):
         """Magic method. Resolve the regex expression."""
+        print("required_endpoint: ",self.required_endpoint)
+        
         data = obj.data.get(self.required_endpoint, "")
+        print("resolve data: ", data)
         return self.resolve(self.regex, data)
 
     @classmethod
@@ -97,6 +100,7 @@ class RegexDescriptor(BaseDescriptor):
         """Classmethod to resolve a given REGEX."""
         text = data
         match = re.search(regex, text, re.MULTILINE)
+        print(match)
         if match:
             if match.group(2) in {"kW", "kWh"}:
                 result = float(match.group(1)) * 1000
