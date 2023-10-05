@@ -3,4 +3,5 @@ respx
 httpx
 pytest
 jsonpath
+homeassistant
 awesomeversion >= 22.9.0
