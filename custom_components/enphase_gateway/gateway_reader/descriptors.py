@@ -25,10 +25,11 @@ class BaseDescriptor:
         self._name = name
         if owner and name and self._required_endpoint:
             _endpoint = GatewayEndpoint(self._required_endpoint, self._cache)
-            if prop := getattr(owner, "_gateway_properties", None):
-                prop[name] = _endpoint
+            uid = f"{owner.__name__.lower()}_gateway_properties"
+            if properties := getattr(owner, uid, None):
+                properties[name] = _endpoint
             else:
-                setattr(owner, "_gateway_properties", {name: _endpoint})
+                setattr(owner, uid, {name: _endpoint})
 
 
 class ResponseDescriptor(BaseDescriptor):

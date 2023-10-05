@@ -110,21 +110,26 @@ class BaseGateway:
         gateway_probes = {}
 
         for obj in [instance.__class__] + instance.__class__.mro():
-            for name, method in obj.__dict__.items():
+            owner_uid = f"{obj.__name__.lower()}"
+            for attr_name, attr_val in obj.__dict__.items():
                 # add gateway properties that have been added to the classes
                 # _gateway_properties dict by descriptors.
-                if name == "_gateway_properties":
-                    for key, val in method.items():
+                if attr_name == f"{owner_uid}_gateway_properties":
+                    for key, val in attr_val.items():
                         gateway_properties.setdefault(key, val)
 
                 # catch flagged methods and add to instance's
                 # _gateway_properties or _gateway_probes.
-                if endpoint := getattr(method, "gateway_property", None):
-                    if name not in gateway_properties.keys():
-                        gateway_properties[name] = endpoint
-                        setattr(instance.__class__, name, property(method))
-                elif endpoint := getattr(method, "gateway_probe", None):
-                    gateway_probes.setdefault(name, endpoint)
+                if endpoint := getattr(attr_val, "gateway_property", None):
+                    if attr_name not in gateway_properties.keys():
+                        gateway_properties[attr_name] = endpoint
+                        setattr(
+                            instance.__class__,
+                            attr_name,
+                            property(attr_val),
+                        )
+                elif endpoint := getattr(attr_val, "gateway_probe", None):
+                    gateway_probes.setdefault(attr_name, endpoint)
 
         instance._gateway_properties = gateway_properties
         instance._gateway_probes = gateway_probes
