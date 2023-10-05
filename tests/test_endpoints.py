@@ -8,7 +8,7 @@ import respx
 import pytest
 from httpx import Response
 
-from custom_components.enphase_gateway.gateway_reader.gateway_reader import GatewayReader
+from custom_components.enphase_gateway.gateway_reader import GatewayReader
 
 
 LOGGER = logging.getLogger(__name__)
