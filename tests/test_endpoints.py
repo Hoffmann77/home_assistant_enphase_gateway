@@ -82,7 +82,7 @@ async def get_gateway(fixture_name):
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_with_3_7_7_firmware():
+async def test_with_3_7_0_firmware():
     """Test with 3.7.0 firmware."""
     fixture_name = "3.7.0"
     gateway_class = "EnvoyLegacy"
