@@ -3,6 +3,7 @@ respx
 httpx
 pytest
 orjson
+xmltodict
 envoy-utils
 beautifulsoup4
 jsonpath

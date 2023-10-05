@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
-import xmltodict
 from typing import Callable
 
+import xmltodict
 from httpx import Response
 
 from .const import AVAILABLE_PROPERTIES
