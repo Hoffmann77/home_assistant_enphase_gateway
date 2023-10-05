@@ -1,6 +1,6 @@
 """Custom exceptions module."""
 
-import httpx
+# import httpx
 
 
 class GatewayError(Exception):
@@ -71,41 +71,14 @@ class InvalidTokenError(GatewayError):
     """Exception raised for invalid Enphase token."""
 
 
+# Setup errors:
+
+class GatewaySetupError(GatewayError):
+    """Exception raised for errors during gateway setup."""
 
 
-
-
-# Configuration errors:  
-    
-
-    
-
-class EnlightenUnauthorized(httpx.HTTPStatusError):
-    """Exception raised for 401 Unauthorized response from Enlighten.
-
-    Raised if status 401 is returned while trying to login to enlighten.
-    Indicates wrong enlighten credentials.
-    
-    """
-    pass
-
-
-# Legacy errors --->
-
-class EnvoyFirmwareCheckError(GatewayError):
-    """Exception raised when unable to query the Envoy firmware version."""
-
-    def __init__(self, status_code: int, status: str) -> None:
-        self.status_code = status_code
-        self.status = status
-
-
-class EnvoyFirmwareFatalCheckError(GatewayError):
-    """Exception raised when we should not retry the Envoy firmware version."""
-
-    def __init__(self, status_code: int, status: str) -> None:
-        self.status_code = status_code
-        self.status = status
+class FatalGatewaySetupError(GatewayError):
+    """Exception raised for fatal errors during gateway setup."""
 
 
 INVALID_AUTH_ERRORS = (

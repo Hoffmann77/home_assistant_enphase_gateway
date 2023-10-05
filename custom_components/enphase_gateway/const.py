@@ -35,6 +35,13 @@ AVAILABLE_PROPERTIES = {
     "battery_storage", "encharge_inventory", "encharge_power"
 }
 
+ALLOWED_ENDPOINTS = [
+    "info", "info.xml", "production", "api/v1/production", "production.json",
+    "api/v1/production/inverters", "ivp/ensemble/inventory", "home.json",
+    "ivp/ensemble/power", "ivp/ensemble/secctrl", "ivp/meters/readings",
+    "auth/check_jwt" "ivp/meters",
+]
+
 CONF_SERIAL_NUM = "serial_num"
 CONF_USE_TOKEN_AUTH = "use_token_auth"
 CONF_TOKEN_RAW = "token_raw"

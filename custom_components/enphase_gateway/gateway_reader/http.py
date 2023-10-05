@@ -10,14 +10,14 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_get(
-    async_client: httpx.AsyncClient,
-    url: str,
-    retries: int = 2,
-    raise_for_status: bool = True,
-    **kwargs
-    ):
+        async_client: httpx.AsyncClient,
+        url: str,
+        retries: int = 2,
+        raise_for_status: bool = True,
+        **kwargs
+) -> httpx.Response:
     """Send a HTTP GET request using httpx.
-    
+
     Parameters
     ----------
     url : str
@@ -25,11 +25,11 @@ async def async_get(
     async_client : httpx.AsyncClient
         Async client.
     retries : int, optional
-        Number of reties in case of a transport error. The default is 2.
+        Number of retries in case of a transport error. The default is 2.
     raise_for_status : bool, optional
         If True call raise_for_status on the response. The default is True.
     **kwargs : dict, optional
-        Extra arguments for httpx.AsyncClient.get(**kwargs).
+        Extra arguments to httpx.AsyncClient.get(**kwargs).
 
     Raises
     ------
@@ -42,34 +42,35 @@ async def async_get(
         HTTP GET response.
 
     """
-    #async with async_client as client:
     for attempt in range(1, retries+2):
-        _LOGGER.debug(
-            f"HTTP GET Attempt #{attempt}: {url}: kwargs: {kwargs}"
-        )
+        _base_msg = f"HTTP GET Attempt #{attempt}: {url}"
         try:
             resp = await async_client.get(url, **kwargs)
-            _LOGGER.debug(
-                f"Response: HTTP GET #{attempt}: {resp}: {resp.text}")
             if raise_for_status:
                 resp.raise_for_status()
         except httpx.TransportError as err:
             if attempt >= retries+1:
-                _LOGGER.debug(
-                    f"Transport Error: HTTP GET Attempt #{attempt}: {err}"
-                )
+                _LOGGER.debug(f"{_base_msg}: Transport Error: {err}")
                 raise err
             else:
                 await asyncio.sleep(attempt * 0.10)
                 continue
         else:
-            _LOGGER.debug(f"Success: HTTP GET Attempt #{attempt}")
+            _LOGGER.debug(
+                f"{_base_msg}: Response: {resp}: length: {len(resp.text)}"
+            )
             return resp
 
 
-async def async_post(async_client, url, retries=2, raise_for_status=True, **kwargs):
+async def async_post(
+        async_client:  httpx.AsyncClient,
+        url: str,
+        retries: int = 2,
+        raise_for_status: bool = True,
+        **kwargs,
+) -> httpx.Response:
     """Send a HTTP POST request using httpx.
-    
+
     Parameters
     ----------
     url : str
@@ -81,19 +82,16 @@ async def async_post(async_client, url, retries=2, raise_for_status=True, **kwar
     raise_for_status : bool, optional
         If True call raise_for_status on the response. The default is True.
     **kwargs : dict, optional
-        Extra arguments for httpx.AsyncClient.get(**kwargs).
+        Extra arguments to httpx.AsyncClient.get(**kwargs).
 
     Returns
     -------
-    resp : HTTP response
+    resp : httpx.Response
         httpx response object.
 
     """
-    #async with async_client as client:
     for attempt in range(1, retries+2):
-        _LOGGER.debug(
-            f"HTTP POST Attempt #{attempt}: {url}: kwargs: {kwargs}"
-        )
+        _base_msg = f"HTTP GET Attempt #{attempt}: {url}"
         try:
             resp = await async_client.post(url, **kwargs)
             _LOGGER.debug(
@@ -103,14 +101,13 @@ async def async_post(async_client, url, retries=2, raise_for_status=True, **kwar
                 resp.raise_for_status()
         except httpx.TransportError as err:
             if attempt >= retries+1:
-                _LOGGER.debug(
-                    f"Transport Error: HTTP POST Attempt #{attempt}: {err}"
-                )
+                _LOGGER.debug(f"{_base_msg}: Transport Error: {err}")
                 raise err
             else:
                 await asyncio.sleep(attempt * 0.10)
                 continue
         else:
-            _LOGGER.debug(f"Success: HTTP POST Attempt #{attempt}")
+            _LOGGER.debug(
+                f"{_base_msg}: Response: {resp}: length: {len(resp.text)}"
+            )
             return resp
-

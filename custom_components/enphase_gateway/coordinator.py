@@ -1,4 +1,4 @@
-"""Gateway update coordinator module."""
+"""GatewayReader update coordinator."""
 
 from __future__ import annotations
 
@@ -7,18 +7,26 @@ from datetime import datetime, timedelta
 from typing import Any, TYPE_CHECKING
 
 import httpx
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.event import async_track_time_interval
-from homeassistant.const import CONF_NAME, CONF_PASSWORD, CONF_USERNAME, CONF_TOKEN
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.storage import Store
 import homeassistant.util.dt as dt_util
+from homeassistant.const import (
+    CONF_NAME,
+    CONF_PASSWORD,
+    CONF_USERNAME,
+    CONF_TOKEN,
+)
+from homeassistant.helpers.update_coordinator import (
+    DataUpdateCoordinator,
+    UpdateFailed,
+)
 
+from .const import ALLOWED_ENDPOINTS
 from .gateway_reader.auth import EnphaseTokenAuth
 from .gateway_reader.exceptions import (
-    INVALID_AUTH_ERRORS,
     EnlightenAuthenticationError,
     GatewayAuthenticationRequired,
     GatewayAuthenticationError,
@@ -42,7 +50,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
     """DataUpdateCoordinator for gateway reader."""
-    
+
     def __init__(
             self,
             hass: HomeAssistant,
@@ -56,7 +64,11 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
         self.password = entry.data[CONF_PASSWORD]
         self._setup_complete = False
         self._cancel_token_refresh: CALLBACK_TYPE | None = None
-        self._store = Store(hass, STORAGE_VERSION, ".".join([STORAGE_KEY, entry.entry_id]))
+        self._store = Store(
+            hass,
+            STORAGE_VERSION,
+            ".".join([STORAGE_KEY, entry.entry_id]),
+        )
         self._store_data = None
         self._store_update_pending = False
         super().__init__(
@@ -64,15 +76,15 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER,
             name=entry.data[CONF_NAME],
             update_interval=SCAN_INTERVAL,
-            #always_update=False, # TODO: Added in ha 2023.9
+            # always_update=False, # TODO: Added in ha 2023.9
         )
 
     async def _async_setup_and_authenticate(self) -> None:
         """Set up the gateway reader and authenticate."""
         gateway_reader = self.gateway_reader
-        await gateway_reader.setup()
+        await gateway_reader.prepare()
         if not gateway_reader.serial_number:
-            return # TODO add logic
+            return  # TODO add logic
 
         if token := await self._async_load_cached_token():
             await gateway_reader.authenticate(
@@ -82,11 +94,12 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
                 cache_token=False,
                 auto_renewal=False,
             )
-            self._async_refresh_token_if_needed(dt_util.utcnow())# TODO check method if applicable
+            # TODO check method if applicable
+            self._async_refresh_token_if_needed(dt_util.utcnow())
             return
 
         await self.gateway_reader.authenticate(
-            username=self.username, 
+            username=self.username,
             password=self.password
         )
 
@@ -94,7 +107,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
 
     @callback
     def _async_refresh_token_if_needed(self, now: datetime) -> None:
-        """Proactively refresh token if its stale in case cloud services goes down."""
+        """Proactively refresh token if its stale."""
         if not isinstance(self.gateway_reader.auth, EnphaseTokenAuth):
             return
         if self.gateway_reader.auth.is_stale:
@@ -110,7 +123,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
         _LOGGER.debug("%s: Trying to refresh token", self.name)
         try:
             await self.gateway_reader.auth.refresh_token()
-        except: # EnvoyError as err: # TODO: Error handling
+        except:  # EnvoyError as err: # TODO: Error handling
             _LOGGER.debug(f"{self.name}: Error refreshing token")
             return
         else:
@@ -140,7 +153,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
         """Update saved token in config entry."""
         if not isinstance(self.gateway_reader.auth, EnphaseTokenAuth):
             return
-        _LOGGER.debug("%s: Updating token in config entry from auth", self.name)
+        _LOGGER.debug(f"{self.name}: Updating token in config entry from auth")
         if token := self.gateway_reader.auth.token:
             self._store_data["token"] = token
             self._store_update_pending = True
@@ -162,7 +175,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
         # update token in config entry so we can
         # startup without hitting the Cloud API
         # as long as the token is valid
-        _LOGGER.debug("%s: Updating token in config entry from auth", self.name)
+        _LOGGER.debug(f"{self.name}: Updating token in config entry from auth")
         self.hass.config_entries.async_update_entry(
             self.entry,
             data={
@@ -180,19 +193,19 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
                 if not self._setup_complete:
                     await self._async_setup_and_authenticate()
                     self._async_mark_setup_complete()
-                await gateway_reader.update()
+                await gateway_reader.update(limit_endpoints=ALLOWED_ENDPOINTS)
                 return gateway_reader.gateway
 
-            except GatewayAuthenticationError as err: # TODO: improve
+            except GatewayAuthenticationError as err:  # TODO: improve
                 # try to refresh cookies or get a new token
                 # can also be done in the get method
                 raise UpdateFailed(
                     f"Gateway authentication error: {err}"
                 ) from err
-                #continue
+                # continue
 
             except (EnlightenAuthenticationError, GatewayAuthenticationRequired) as err:
-                # token likely expired or firmware changed, try to re-authenticate
+                # token likely expired or firmware changed - re-authenticate
                 # Enlighten credentials are likely to be invalid
                 if self._setup_complete and _try == 0:
                     self._setup_complete = False
@@ -204,4 +217,4 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
                     f"Error communicating with API: {err}"
                 ) from err
 
-        raise RuntimeError("Unreachable code in _async_update_data")  # pragma: no cover
+        raise RuntimeError("Unreachable code in _async_update_data")

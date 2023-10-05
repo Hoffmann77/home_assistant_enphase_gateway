@@ -1,4 +1,5 @@
 """The Enphase Envoy integration."""
+
 from __future__ import annotations
 
 import logging
@@ -10,7 +11,7 @@ from homeassistant.helpers.httpx_client import get_async_client
 
 from .gateway_reader import GatewayReader
 from .coordinator import GatewayReaderUpdateCoordinator
-from .const import ( 
+from .const import (
     DOMAIN, PLATFORMS, CONF_ENCHARGE_ENTITIES, CONF_INVERTERS
 )
 
@@ -46,31 +47,34 @@ async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unload_ok:
+    unload = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload:
         hass.data[DOMAIN].pop(entry.entry_id)
-    return unload_ok
+    return unload
 
 
-async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+async def async_migrate_entry(
+        hass: HomeAssistant,
+        config_entry: ConfigEntry,
+) -> bool:
     """Migrate old entry."""
     _LOGGER.debug(f"Migrating from version {config_entry.version}")
 
     if config_entry.version == 1:
 
         new = {**config_entry.data}
-        
+
         # Remove unwanted variables
         new.pop("token_raw", None)
         new.pop("use_token_cache", None)
         new.pop("token_cache_filepath", None)
         new.pop("single_inverter_entities", None)
-        
+
         options = {
             CONF_INVERTERS: "gateway_sensor",
             CONF_ENCHARGE_ENTITIES: False,
         }
-        
+
         config_entry.version = 2
         hass.config_entries.async_update_entry(
             config_entry,

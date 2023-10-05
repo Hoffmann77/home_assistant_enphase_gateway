@@ -9,17 +9,23 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.components import zeroconf
-from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.selector import selector
 from homeassistant.helpers.httpx_client import get_async_client
+from homeassistant.const import (
+    CONF_HOST,
+    CONF_NAME,
+    CONF_PASSWORD,
+    CONF_USERNAME,
+)
 
 from .gateway_reader import GatewayReader
 from .exceptions import CannotConnect
 from .const import (
-    DOMAIN, CONF_SERIAL_NUM, CONF_CACHE_TOKEN, CONF_USE_LEGACY_NAME, 
+    DOMAIN, CONF_SERIAL_NUM, CONF_CACHE_TOKEN, CONF_USE_LEGACY_NAME,
     CONF_ENCHARGE_ENTITIES, CONFIG_FLOW_USER_ERROR, CONF_INVERTERS,
+    ALLOWED_ENDPOINTS,
 )
 
 
@@ -40,9 +46,9 @@ async def validate_input(
         host,
         get_async_client(hass, verify_ssl=False)
     )
-    await gateway_reader.setup()
+    await gateway_reader.prepare()
     await gateway_reader.authenticate(username=username, password=password)
-    await gateway_reader.update()
+    await gateway_reader.update(limit_endpoints=ALLOWED_ENDPOINTS)
     return gateway_reader
 
 
@@ -292,7 +298,6 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def _generate_shema_config_step(self):
         """Generate schema."""
-        
         schema = {
             vol.Required(CONF_INVERTERS): selector(
                 {
@@ -304,7 +309,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
         }
-        
+
         if self._gateway_reader.gateway.encharge_inventory:
             schema.update(
                 {vol.Optional(CONF_ENCHARGE_ENTITIES, default=True): bool}

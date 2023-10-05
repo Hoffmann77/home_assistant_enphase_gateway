@@ -2,36 +2,23 @@
 
 from __future__ import annotations
 
-import time
 import logging
-import xmltodict
-from typing import TYPE_CHECKING, Callable
+from typing import Callable
 
+import xmltodict
 from httpx import Response
 
 from .const import AVAILABLE_PROPERTIES
 from .endpoint import GatewayEndpoint
-from .descriptors import JsonDescriptor, RegexDescriptor
-
-from .models.ac_battery import ACBattery
-
-if TYPE_CHECKING:
-    from .gateway_reader import GatewayReader
+from .descriptors import ResponseDescriptor, JsonDescriptor, RegexDescriptor
 
 
 _LOGGER = logging.getLogger(__name__)
 
-#GATEWAY_PROPERTIES = {}
 
+def gateway_property(_func: Callable | None = None, **kwargs) -> None:
+    """Register an instance's method as a property of a gateway.
 
-def gateway_property(_func: Callable | None = None, **kwargs) -> property:
-    """Gateway property decorator.
-    
-    Register the decorated method and it's required endpoint to 
-    BaseGateway._gateway_properties.
-    
-    Return a property of the the decorated method.
-    
     Parameters
     ----------
     _func : Callable, optional
@@ -41,37 +28,32 @@ def gateway_property(_func: Callable | None = None, **kwargs) -> property:
 
     Returns
     -------
-    property
-        Property of the decorated method.
+    method
+        Decorated method.
 
     """
     required_endpoint = kwargs.pop("required_endpoint", None)
     cache = kwargs.pop("cache", 0)
 
     def decorator(func):
+        endpoint = None
         if required_endpoint:
-            _endpoint = GatewayEndpoint(required_endpoint, cache)
-        else:
-            _endpoint = None
-        
-        BaseGateway._gateway_properties[func.__name__] = _endpoint
-        #GATEWAY_PROPERTIES[func.__name__] = _endpoint
-        return property(func)
-    
-    if _func == None:
-        return decorator
-    else:
-        return decorator(_func)
-    
+            endpoint = GatewayEndpoint(required_endpoint, cache)
+
+        func.gateway_property = endpoint  # flag method as gateway property
+        return func
+
+    return decorator if _func is None else decorator(_func)
+
 
 def gateway_probe(_func: Callable | None = None, **kwargs) -> property:
     """Gateway probe decorator.
-    
-    Register the decorated method and it's required endpoint to 
+
+    Register the decorated method and it's required endpoint to
     BaseGateway._gateway_probes.
-    
+
     Return a property of the the decorated method.
-    
+
     Parameters
     ----------
     _func : Callable, optional
@@ -89,56 +71,95 @@ def gateway_probe(_func: Callable | None = None, **kwargs) -> property:
     cache = kwargs.pop("cache", 0)
 
     def decorator(func):
-        def inner(self, *args, **kwargs):
-            if required_endpoint:
-                _endpoint = GatewayEndpoint(required_endpoint, cache)
-            else:
-                _endpoint = None
-            
-            type(self)._gateway_probes[func.__name__] = _endpoint
-            return func(self, *args, **kwargs)
-        
-        return inner
-    
-    if _func == None:
-        return decorator
-    else:
-        return decorator(_func)
-    
-    
+        endpoint = None
+        if required_endpoint:
+            endpoint = GatewayEndpoint(required_endpoint, cache)
+
+        func.gateway_probe = endpoint
+        return func
+
+    return decorator if _func is None else decorator(_func)
+
+
 class BaseGateway:
-    """Class providing getter and setter methods for data."""
+    """Base class representing an (R)Enphase Gateway.
+
+    Provides properties to access data fetched from the required endpoint.
+
+    Attributes
+    ----------
+    data : dict
+        Response data from the endpoints.
+    initial_update_finished : bool
+        Return True if the initial update has finished. Return False otherwise.
+
+    """
 
     VERBOSE_NAME = "Enphase Gateway"
 
-    _gateway_properties = {}
-    _gateway_probes = {}
-    
-    def __init__(self) -> None:
-        """Initialize BaseGateway."""
-        self.data = {}
-        self.initial_update_finished = False
-        self._required_endpoints = None
-    
-    @property
-    def all_values(self) -> dict[str, int | float]:
-        """Return a dict containing all attributes.
-        
-        Returns
-        -------
-        dict
-            Dict containing all attributes with their value.
+    def __new__(cls, *args, **kwargs):
+        """Create a new instance.
+
+        Catch methods having the 'gateway_property' attribute and add them
+        to the classes '_gateway_properties' attribute.
+        Set the method as a property of the class.
 
         """
+        instance = super().__new__(cls)
+        gateway_properties = {}
+        gateway_probes = {}
+
+        for obj in [instance.__class__] + instance.__class__.mro():
+            owner_uid = f"{obj.__name__.lower()}"
+            for attr_name, attr_val in obj.__dict__.items():
+                # add gateway properties that have been added to the classes
+                # _gateway_properties dict by descriptors.
+                if attr_name == f"{owner_uid}_gateway_properties":
+                    for key, val in attr_val.items():
+                        gateway_properties.setdefault(key, val)
+
+                # catch flagged methods and add to instance's
+                # _gateway_properties or _gateway_probes.
+                if endpoint := getattr(attr_val, "gateway_property", None):
+                    if attr_name not in gateway_properties.keys():
+                        gateway_properties[attr_name] = endpoint
+                        setattr(
+                            instance.__class__,
+                            attr_name,
+                            property(attr_val),
+                        )
+                elif endpoint := getattr(attr_val, "gateway_probe", None):
+                    gateway_probes.setdefault(attr_name, endpoint)
+
+        instance._gateway_properties = gateway_properties
+        instance._gateway_probes = gateway_probes
+        return instance
+
+    def __init__(self, gateway_info=None) -> None:
+        """Initialize instance of BaseGateway."""
+        self.data = {}
+        self.gateway_info = gateway_info
+        self.initial_update_finished = False
+        self._required_endpoints = None
+        self._probes_finished = False
+
+    @property
+    def properties(self):
+        """Return the properties of the gateway."""
+        return self._gateway_properties.keys()
+
+    @property
+    def all_values(self) -> dict:
+        """Return a dict containing all attributes and their value."""
         result = {}
-        for attr in self._gateway_properties.keys():
+        for attr in self.properties:
             result[attr] = getattr(self, attr)
 
         return result
 
     @property
     def required_endpoints(self) -> list[GatewayEndpoint]:
-        """Return all required endpoints for this Gateway.
+        """Return all required endpoints for this gateway.
 
         Returns
         -------
@@ -148,68 +169,49 @@ class BaseGateway:
         """
         if self._required_endpoints:
             return self._required_endpoints.values()
-            
 
         endpoints = {}
 
         def update_endpoints(endpoint):
             _endpoint = endpoints.get(endpoint.path)
-            
-            if _endpoint == None:
+
+            if _endpoint is None:
                 endpoints[endpoint.path] = endpoint
-                
+
             elif endpoint.cache < _endpoint.cache:
                 _endpoint.cache = endpoint.cache
-        
-        _LOGGER.debug(f"properties registered: {self._gateway_properties.items()}")
-        #for prop, prop_endpoint in GATEWAY_PROPERTIES.items():
+
+        _LOGGER.debug(f"Registered properties: {self._gateway_properties}")
         for prop, prop_endpoint in self._gateway_properties.items():
             if isinstance(prop_endpoint, GatewayEndpoint):
-                
+
                 value = getattr(self, prop)
                 if self.initial_update_finished and value in (None, [], {}):
                     # When the value is None or empty list or dict,
                     # then the endpoint is useless for this token,
                     # so do not require it.
                     continue
-                
+
                 update_endpoints(prop_endpoint)
-                
+
         if self.initial_update_finished:
-            # Save the list in memory, as we should not evaluate this list again.
+            # Save list in memory, as we should not evaluate this list again.
             # If the list needs re-evaluation, then reload the plugin.
-            self._required_endpoints = endpoints    
-        
+            self._required_endpoints = endpoints
+
         else:
             for probe, probe_endpoint in self._gateway_probes.items():
                 if isinstance(probe_endpoint, GatewayEndpoint):
                     update_endpoints(probe_endpoint)
-                
+
         return endpoints.values()
-    
-    # def register_property(endpoint, name):
-    #     GATEWAY_PROPERTIES[name] = endpoint
-        
-     
-    # def update_required_endpoints(self):
-        
-    #     endpoints_new = {}
-    #     for endpoint in self._gateway_properties:
-    #         _endpoint = endpoints_new.get(endpoint.path)
-    #         if _endpoint == None:
-    #             endpoints_new[endpoint.path] = endpoint
-            
-    #         elif endpoint.cache < _endpoint.cache:
-    #             _endpoint.cache = endpoint.cache
-            
-            
-            
-            
-        
-    
-    
+
+    def get_subclass(self):
+        """Return the matching subclass."""
+        return None
+
     def set_endpoint_data(
-            self, 
+            self,
             endpoint: GatewayEndpoint,
             response: Response
     ) -> None:
@@ -240,11 +242,13 @@ class BaseGateway:
         else:
             self.data[endpoint.path] = response.text
 
-    def probe(self):
-        """Probe all probes."""
+    def run_probes(self):
+        """Run all registered probes of the gateway."""
+        _LOGGER.debug(f"Registered probes: {self._gateway_probes.keys()}")
         for probe in self._gateway_probes.keys():
             func = getattr(self, probe)
             func()
+            self._probes_finished = True
 
     def __getattribute__(self, name):
         """Return None if gateway does not support this property."""
@@ -280,169 +284,135 @@ class BaseGateway:
         elif isinstance(data, str) and data == "not_supported":
             return default
         return data
-        
+
 
 class EnvoyLegacy(BaseGateway):
     """Enphase(R) Envoy-R Gateway using FW < R3.9."""
-    
+
     VERBOSE_NAME = "Envoy-R"
-    
+
     production = RegexDescriptor(
-        "production_legacy",
+        "production",
         r"<td>Currentl.*</td>\s+<td>\s*(\d+|\d+\.\d+)\s*(W|kW|MW)</td>"
     )
-    
+
     daily_production = RegexDescriptor(
-        "production_legacy",
+        "production",
         r"<td>Today</td>\s+<td>\s*(\d+|\d+\.\d+)\s*(Wh|kWh|MWh)</td>"
     )
-    
+
     seven_days_production = RegexDescriptor(
-        "production_legacy",
+        "production",
         r"<td>Past Week</td>\s+<td>\s*(\d+|\d+\.\d+)\s*(Wh|kWh|MWh)</td>"
     )
-    
+
     lifetime_production = RegexDescriptor(
-        "production_legacy",
-        r"<td>Since Installation</td>\s+<td>\s*(\d+|\d+\.\d+)\s*(Wh|kWh|MWh)</td>"
+        "production",
+        r"<td>Since Installation</td>\s+<td>\s*(\d+|\d+\.\d+)\s*(Wh|kWh|MWh)</td>" # noqa
     )
-    
+
 
 class Envoy(BaseGateway):
     """Enphase(R) Envoy-R Gateway using FW >= R3.9."""
-    
+
     VERBOSE_NAME = "Envoy-R"
-    
+
     _ENDPOINT = "api/v1/production"
-    
+
     production = JsonDescriptor("wattsNow", _ENDPOINT)
-    
+
     daily_production = JsonDescriptor("wattHoursToday", _ENDPOINT)
-    
-    seven_days_production = JsonDescriptor("whLastSevenDays", _ENDPOINT)
-    
+
+    seven_days_production = JsonDescriptor("wattHoursSevenDays", _ENDPOINT)
+
     lifetime_production = JsonDescriptor("wattHoursLifetime", _ENDPOINT)
-    
+
     @gateway_property(required_endpoint=_ENDPOINT + "/inverters")
     def inverters_production(self):
         """Single inverter production data."""
         data = self.data.get(self._ENDPOINT + "/inverters")
         if data:
             return {item["serialNumber"]: item for item in data}
-            
+
         return None
-        
+
 
 class EnvoyS(Envoy):
     """Enphase(R) Envoy-S Standard Gateway."""
-    
+
     VERBOSE_NAME = "Envoy-S Standard"
-    
-    ensemble_inventory = JsonDescriptor("", "ivp/ensemble/inventory")
-    
-    ensemble_submod = JsonDescriptor("", "ivp/ensemble/submod")
-    
+
+    # ensemble_inventory = JsonDescriptor("", "ivp/ensemble/inventory")
+
+    # ensemble_submod = JsonDescriptor("", "ivp/ensemble/submod")
+
     ensemble_secctrl = JsonDescriptor("", "ivp/ensemble/secctrl")
-    
+
     ensemble_power = JsonDescriptor("devices:", "ivp/ensemble/power")
-    
-    
-    
-    # @gateway_property(required_endpoint="ivp/ensemble/inventory")
-    # def ensemble_inventory(self):
-    #     """Ensemble inventory data."""
-    #     result = self.data.get("ivp/ensemble/inventory")
-    #     #result = JsonDescriptor.resolve("ensemble_inventory", self.data)
-    #     storages = {}
-    #     if result and isinstance(result, list):
-    #         for entry in result:
-    #             storage_type = entry.get("type")
-    #             if devices := entry.get("devices"):
-    #                 for device in devices:
-    #                     uid = f"{storage_type.lower()}_{device['serial_num']}" 
-    #                     storages[uid] = device 
-  
-    #     return storages
-    
-    
+
     @gateway_property(required_endpoint="ivp/ensemble/inventory")
     def encharge_inventory(self):
         """Ensemble inventory data.
-        
+
         Only return encharge related data.
-        
+
         """
         data = self.data.get("ivp/ensemble/inventory", {})
         result = JsonDescriptor.resolve(
-            "$.[?(@.type=='ENCHARGE')].devices", 
+            "$.[?(@.type=='ENCHARGE')].devices",
             data,
         )
         if result:
             return {device["serial_num"]: device for device in result}
-        
+
         return None
 
     @gateway_property(required_endpoint="ivp/ensemble/power")
     def encharge_power(self):
         """Ensemble inventory data.
-        
+
         Only returns encharge related data.
-        
+
         """
         data = self.data.get("ivp/ensemble/power", {})
         result = JsonDescriptor.resolve("devices:", data)
         if result and isinstance(result, list):
             return {device["serial_num"]: device for device in result}
-        
-        return None        
-            
-        
-        # storages = {}
-        # if result and isinstance(result, list):
-        #     for entry in result:
-        #         storage_type = entry.get("type")
-        #         if devices := entry.get("devices"):
-        #             for device in devices:
-        #                 uid = f"{storage_type.lower()}_{device['serial_num']}" 
-        #                 storages[uid] = device 
-  
-        # return storages
-    
-    
-    
-    @gateway_property
-    def ac_battery(self) -> ACBattery | None:
-        """AC battery data."""
-        data = self.data.get("production.json", {})
-        result = JsonDescriptor.resolve("storage[?(@.percentFull)]", data)
-        return ACBattery(result) if result else None
-        
-    
+
+        return None
+
+    # @gateway_property
+    # def ac_battery(self) -> ACBattery | None:
+    #     """AC battery data."""
+    #     data = self.data.get("production.json", {})
+    #     result = JsonDescriptor.resolve("storage[?(@.percentFull)]", data)
+    #     return ACBattery(result) if result else None
+
     # @gateway_property(required_endpoint="ensemble_submod")
     # def ensemble_submod(self):
     #     """Ensemble submod data."""
     #     result = JsonDescriptor.resolve("ensemble_sbumod", self.data)
     #     return result if result else self._default
-        
+
     # @gateway_property(required_endpoint="ensemble_power")
     # def ensemble_power(self):
     #     """Ensemble power data."""
     #     result = JsonDescriptor.resolve("ensemble_power.devices:", self.data)
     #     return result if result else self._default
-    
+
     # @gateway_property(required_endpoint="ensemble_secctrl")
     # def ensemble_secctrl(self):
     #     """Ensemble secctrl data."""
     #     result = JsonDescriptor.resolve("ensemble_secctrl", self.data)
     #     return result if result else self._default
-    
+
     @gateway_property(required_endpoint="production.json")
     def acb_storage(self):
         """ACB storage data."""
         data = self.data.get("production.json", {})
         result = JsonDescriptor.resolve("storage[?(@.percentFull)]", data)
         return result if result else {}
-    
+
     @gateway_property
     def battery_storage(self):
         """Battery storage data."""
@@ -450,137 +420,268 @@ class EnvoyS(Envoy):
         acb_storage = self.acb_storage
         return ensemble_storage | acb_storage
 
-        
+
 class EnvoySMetered(EnvoyS):
-    """Enphase(R) Envoy Model S Metered Gateway."""
-    
+    """Enphase(R) Envoy Model S Metered Gateway.
+
+    This is the default gateway for metered Envoy-s gateways.
+    It provides probes to detect abnormal configurations.
+
+    """
+
     VERBOSE_NAME = "Envoy-S Metered"
-    
-    _PRODUCTION = "production[?(@.type=='eim' && @.activeCount > 0)]"
-    
+
     _CONS = "consumption[?(@.measurementType == '{}' && @.activeCount > 0)]"
-    
+
+    _PRODUCTION_JSON = "production[?(@.type=='eim' && @.activeCount > 0)].{}"
+
+    _TOTAL_CONSUMPTION_JSON = _CONS.format("total-consumption")
+
+    _NET_CONSUMPTION_JSON = _CONS.format("net-consumption")
+
+    def __init__(self, *args, **kwargs):
+        """Initialize instance of EnvoySMetered."""
+        super().__init__(*args, **kwargs)
+        self.production_meter = None
+        self.net_consumption_meter = None
+        self.total_consumption_meter = None
+
+    def get_subclass(self):
+        """Return the subclass for abnormal gateway installations."""
+        if self._probes_finished:
+            consumption_meter = (
+                self.net_consumption_meter or self.total_consumption_meter
+            )
+            if not self.production_meter or not consumption_meter:
+                return EnvoySMeteredCtDisabled(
+                    self.production_meter,
+                    self.net_consumption_meter,
+                    self.total_consumption_meter,
+                )
+
+        return None
+
+    @gateway_probe(required_endpoint="ivp/meters")
+    def ivp_meters_probe(self):
+        """Probe the meter configuration."""
+        base_expr = "$.[?(@.state=='enabled' && @.measurementType=='{}')].eid"
+        self.production_meter = JsonDescriptor.resolve(
+            base_expr.format("production"),
+            self.data.get("ivp/meters", {}),
+        )
+        self.net_consumption_meter = JsonDescriptor.resolve(
+            base_expr.format("net-consumption"),
+            self.data.get("ivp/meters", {}),
+        )
+        self.total_consumption_meter = JsonDescriptor.resolve(
+            base_expr.format("total-consumption"),
+            self.data.get("ivp/meters", {}),
+        )
+        _LOGGER.debug("Probe: 'ivp_meters_probe' finished")
+
+    # @gateway_property(required_endpoint="ivp/meters/readings")
+    # def grid_import(self):
+    #     """Return grid import."""
+    #     if eid := self.net_consumption_meter:
+    #         power = JsonDescriptor.resolve(
+    #             f"$.[?(@.eid=={eid})].activePower",
+    #             self.data.get("ivp/meters/readings", {})
+    #         )
+    #         if isinstance(power, int):
+    #             return power if power > 0 else 0
+
+    #     return None
+
+    # @gateway_property(required_endpoint="ivp/meters/readings")
+    # def grid_import_lifetime(self):
+    #     """Return lifetime grid import."""
+    #     if eid := self.net_consumption_meter:
+    #         return JsonDescriptor.resolve(
+    #             f"$.[?(@.eid=={eid})].actEnergyDlvd",
+    #             self.data.get("ivp/meters/readings", {})
+    #         )
+
+    #     return None
+
+    # @gateway_property(required_endpoint="ivp/meters/readings")
+    # def grid_export(self):
+    #     """Return grid export."""
+    #     if eid := self.net_consumption_meter:
+    #         power = JsonDescriptor.resolve(
+    #             f"$.[?(@.eid=={eid})].activePower",
+    #             self.data.get("ivp/meters/readings", {})
+    #         )
+    #         if isinstance(power, int):
+    #             return (power * -1) if power < 0 else 0
+
+    #     return None
+
+    # @gateway_property(required_endpoint="ivp/meters/readings")
+    # def grid_export_lifetime(self):
+    #     """Return lifetime grid export."""
+    #     if eid := self.net_consumption_meter:
+    #         return JsonDescriptor.resolve(
+    #             f"$.[?(@.eid=={eid})].actEnergyRcvd",
+    #             self.data.get("ivp/meters/readings", {})
+    #         )
+
+    #     return None
+
+    @gateway_property(required_endpoint="ivp/meters/readings")
+    def production(self):
+        """Return the measured active power."""
+        return JsonDescriptor.resolve(
+            f"$.[?(@.eid=={self.production_meter})].activePower",
+            self.data.get("ivp/meters/readings", {})
+        )
+
+    @gateway_property(required_endpoint="production.json", cache=120)
+    def daily_production(self):
+        """Return the daily energy production."""
+        return JsonDescriptor.resolve(
+            self._PRODUCTION_JSON.format("whToday"),
+            self.data.get("production.json", {})
+        )
+
+    @gateway_property(required_endpoint="production.json", cache=120)
+    def seven_days_production(self):
+        """Return the daily energy production."""
+        return JsonDescriptor.resolve(
+            self._PRODUCTION_JSON.format("whLastSevenDays"),
+            self.data.get("production.json", {}),
+        )
+
+    @gateway_property(required_endpoint="ivp/meters/readings")
+    def lifetime_production(self):
+        """Return the lifetime energy production."""
+        return JsonDescriptor.resolve(
+            f"$.[?(@.eid=={self.production_meter})].actEnergyDlvd",
+            self.data.get("ivp/meters/readings", {})
+        )
+
+    @gateway_property(required_endpoint="ivp/meters/readings")
+    def consumption(self):
+        """Return the measured active power."""
+        if eid := self.net_consumption_meter:
+            prod = self.production
+            cons = JsonDescriptor.resolve(
+                f"$.[?(@.eid=={eid})]",
+                self.data.get("ivp/meters/readings", {})
+            )
+            if prod and cons:
+                return prod + cons["activePower"]
+
+        return None
+
+    @gateway_property(required_endpoint="production.json", cache=120)
+    def daily_consumption(self):
+        """Return the daily energy production."""
+        return JsonDescriptor.resolve(
+            self._TOTAL_CONSUMPTION_JSON + ".whToday",
+            self.data.get("production.json", {})
+        )
+
+    @gateway_property(required_endpoint="production.json", cache=120)
+    def seven_days_consumption(self):
+        """Return the daily energy production."""
+        return JsonDescriptor.resolve(
+            self._TOTAL_CONSUMPTION_JSON + ".whLastSevenDays",
+            self.data.get("production.json", {}),
+        )
+
+    @gateway_property(required_endpoint="ivp/meters/readings")
+    def lifetime_consumption(self):
+        """Return the lifetime energy production."""
+        if eid := self.net_consumption_meter:
+            prod = self.lifetime_production
+            cons = JsonDescriptor.resolve(
+                f"$.[?(@.eid=={eid})]",
+                self.data.get("ivp/meters/readings", {})
+            )
+            if prod and cons:
+                return prod - (cons["actEnergyRcvd"] - cons["actEnergyDlvd"])
+
+        return None
+
+
+class EnvoySMeteredCtDisabled(EnvoyS):
+    """Enphase(R) Envoy Model S Metered Gateway with disabled CTs."""
+
+    VERBOSE_NAME = "Envoy-S Metered without CTs"
+
+    _CONS = "consumption[?(@.measurementType == '{}' && @.activeCount > 0)]"
+
+    _PRODUCTION = "production[?(@.type=='{}' && @.activeCount > 0)]"
+
+    _PRODUCTION_INV = "production[?(@.type=='inverters')]"
+
     _TOTAL_CONSUMPTION = _CONS.format("total-consumption")
-    
+
     _NET_CONSUMPTION = _CONS.format("net-consumption")
-    
+
     consumption = JsonDescriptor(
         _TOTAL_CONSUMPTION + ".wNow",
         "production.json",
     )
-    
+
     daily_consumption = JsonDescriptor(
         _TOTAL_CONSUMPTION + ".whToday",
         "production.json",
     )
-    
+
     seven_days_consumption = JsonDescriptor(
         _TOTAL_CONSUMPTION + ".whLastSevenDays",
-        "production.json",  
+        "production.json",
     )
-    
+
     lifetime_consumption = JsonDescriptor(
         _TOTAL_CONSUMPTION + ".whLifetime",
         "production.json",
     )
-    
-    def __init__(self, *args, **kwargs):
+
+    def __init__(
+            self,
+            production_meter: str | None,
+            net_consumption_meter: str | None,
+            total_consumption_meter: str | None,
+            *args,
+            **kwargs
+    ):
+        """Initialize instance of EnvoySMeteredAbnormal."""
         super().__init__(*args, **kwargs)
-        self.production_ct = None
-        self.consumption_ct = None
-    
-    # @gateway_probe(required_endpoint="production_json")
-    # def probe(self):
-    #     """Probe the endpoint."""
-    #     if self.initial_update_finished:
-    #         return 
-        
-    #     prod_count = JsonDescriptor.resolve(
-    #         "production_json.production[?(@.type=='eim')].activeCount", 
-    #         self.data
-    #     )
-        
-    #     cons_count = JsonDescriptor.resolve(
-    #         "production_json.consumption[?(@.type=='eim')].activeCount", 
-    #         self.data
-    #     )
-    #     if isinstance(cons_count, list):
-    #         cons_count = cons_count[0]    
-        
-    #     self.production_ct = True if prod_count and prod_count > 0 else False
-    #     self.consumption_ct = True if cons_count and cons_count > 0 else False
-    
-    @gateway_probe(required_endpoint="production.json")
-    def meters_config(self):
-        """Probe the meter settings."""
-        if self.initial_update_finished:
-            return 
-        
-        prod_count = JsonDescriptor.resolve(
-            "production[?(@.type=='eim')].activeCount", 
-            self.data.get("production.json", {}),  
-        )
-        
-        if not prod_count:
-            self._PRODUCTION = "production[?(@.type=='inverters')]"
-            
-        # self.production_ct = True if prod_count and prod_count > 0 else False
-        # self.consumption_ct = True if cons_count and cons_count > 0 else False
-        
+        self.production_meter = production_meter
+        self.net_consumption_meter = net_consumption_meter
+        self.total_consumption_meter = total_consumption_meter
+        self.prod_type = "eim" if production_meter else "inverters"
+
     @gateway_property(required_endpoint="production.json")
     def production(self):
         """Energy production."""
-        data = self.data.get("production.json", {})
-        return JsonDescriptor.resolve(self._PRODUCTION + ".wNow", data)
+        return JsonDescriptor.resolve(
+            self._PRODUCTION.format(self.prod_type) + ".wNow",
+            self.data.get("production.json", {})
+        )
 
     @gateway_property(required_endpoint="production.json")
     def daily_production(self):
         """Todays energy production."""
-        data = self.data.get("production.json", {})
-        return JsonDescriptor.resolve(self._PRODUCTION + ".whToday", data)
-     
+        return JsonDescriptor.resolve(
+            self._PRODUCTION.format(self.prod_type) + ".whToday",
+            self.data.get("production.json", {})
+        )
+
     @gateway_property(required_endpoint="production.json")
     def seven_days_production(self):
         """Last seven days energy production."""
-        data = self.data.get("production.json", {})
-        return JsonDescriptor.resolve(self._PRODUCTION + ".whLastSevenDays", data)
-        
+        return JsonDescriptor.resolve(
+            self._PRODUCTION.format(self.prod_type) + ".whLastSevenDays",
+            self.data.get("production.json", {})
+        )
+
     @gateway_property(required_endpoint="production.json")
     def lifetime_production(self):
         """Lifetime energy production."""
-        data = self.data.get("production.json", {})
-        return JsonDescriptor.resolve(self._PRODUCTION + ".whLifetime", data)
-
-    
-    # @gateway_property(required_endpoint="production_json")
-    # def consumption(self):
-    #     """Current energy consumption."""
-    #     if self.consumption_ct:
-    #         return JsonDescriptor.resolve(self._CONSMPT_TOTAL + ".wNow", self.data)
-    #     else:
-    #         return "not_supported"
-
-    # @gateway_property(required_endpoint="production_json")
-    # def daily_consumption(self):
-    #     """Todays energy consumption."""
-    #     if self.consumption_ct:
-    #         return JsonDescriptor.resolve(self._CONSMPT_TOTAL + ".whToday", self.data)
-    #     else:
-    #         return "not_supported"
-        
-    # @gateway_property(required_endpoint="production_json")
-    # def seven_days_consumption(self):
-    #     """Last seven days energy consumption."""
-    #     if self.consumption_ct:
-    #         return JsonDescriptor.resolve(self._CONSMPT_TOTAL + ".whLastSevenDays", self.data)
-    #     else:
-    #         return "not_supported"
-        
-    # @gateway_property(required_endpoint="production_json")
-    # def lifetime_consumption(self):
-    #     """Lifetime energy consumption."""
-    #     if self.consumption_ct:
-    #         return JsonDescriptor.resolve(self._CONSMPT_TOTAL + ".whLifetime", self.data)
-    #     else:
-    #         return "not_supported"
-    
+        return JsonDescriptor.resolve(
+            self._PRODUCTION.format(self.prod_type) + ".whLifetime",
+            self.data.get("production.json", {})
+        )

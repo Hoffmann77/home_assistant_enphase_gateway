@@ -15,16 +15,21 @@ _LOGGER = logging.getLogger(__name__)
 class BaseDescriptor:
     """Base descriptor."""
 
-    def __init__(self, required_endpoint: str, cache: int) -> None:
+    def __init__(self, required_endpoint: str, cache: int = 0) -> None:
         """Initialize BaseDescriptor."""
         self._required_endpoint = required_endpoint
         self._cache = cache
 
     def __set_name__(self, owner, name) -> None:
         """Set name and owner of the descriptor."""
+        self._name = name
         if owner and name and self._required_endpoint:
             _endpoint = GatewayEndpoint(self._required_endpoint, self._cache)
-            owner._gateway_properties[name] = _endpoint
+            uid = f"{owner.__name__.lower()}_gateway_properties"
+            if properties := getattr(owner, uid, None):
+                properties[name] = _endpoint
+            else:
+                setattr(owner, uid, {name: _endpoint})
 
 
 class ResponseDescriptor(BaseDescriptor):
@@ -81,12 +86,12 @@ class RegexDescriptor(BaseDescriptor):
 
     def __init__(self, required_endpoint, regex, cache: int = 0):
         super().__init__(required_endpoint, cache)
-        self.regex = regex
+        self._regex = regex
 
     def __get__(self, obj, objtype=None):
         """Magic method. Resolve the regex expression."""
-        data = obj.data.get(self.required_endpoint, "")
-        return self.resolve(self.regex, data)
+        data = obj.data.get(self._required_endpoint, "")
+        return self.resolve(self._regex, data)
 
     @classmethod
     def resolve(cls, regex: str, data: str):

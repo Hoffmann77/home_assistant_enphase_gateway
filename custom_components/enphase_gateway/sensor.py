@@ -128,6 +128,46 @@ CONSUMPTION_SENSORS = (
 )
 
 
+GRID_SENSORS = (
+    SensorEntityDescription(
+        key="grid_import",
+        name="Grid import",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+        suggested_unit_of_measurement=UnitOfPower.WATT,
+        suggested_display_precision=0,
+    ),
+    SensorEntityDescription(
+        key="grid_export",
+        name="Grid export",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+        suggested_unit_of_measurement=UnitOfPower.WATT,
+        suggested_display_precision=0,
+    ),
+    SensorEntityDescription(
+        key="grid_import_lifetime",
+        name="Lifetime grid import",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_display_precision=0,
+    ),
+    SensorEntityDescription(
+        key="grid_export_lifetime",
+        name="Lifetime grid export",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_unit_of_measurement=UnitOfEnergy.MEGA_WATT_HOUR,
+        suggested_display_precision=0,
+    ),
+)
+
+
 AC_BATTERY_SENSORS = (
     SensorEntityDescription(
         key="whNow",
@@ -308,9 +348,10 @@ async def async_setup_entry(
     options = config_entry.options
     conf_inverters = options.get(CONF_INVERTERS, False)
     conf_encharge_entity = options.get(CONF_ENCHARGE_ENTITIES, False)
+    base_sensors = PRODUCTION_SENSORS + CONSUMPTION_SENSORS  # + GRID_SENSORS
     entities = []
 
-    for sensor_description in (PRODUCTION_SENSORS + CONSUMPTION_SENSORS):
+    for sensor_description in base_sensors:
         _LOGGER.debug("Setting up entity: sensor_description.name")
         if getattr(coordinator.data, sensor_description.key):
             entities.append(
@@ -356,7 +397,7 @@ async def async_setup_entry(
             for description in ENCHARGE_POWER_SENSORS
             for encharge in data
         )
-    
+
     _LOGGER.debug(f"Adding entities: {entities}")
     async_add_entities(entities)
 
@@ -453,7 +494,7 @@ class GatewayInverterEntity(GatewaySensorInverterEntity):
         """Return the entity's name."""
         # override the parent inverter class name
         return super(GatewaySensorInverterEntity, self).name
-        #return self.entity_description.name
+        # return self.entity_description.name
 
     @property
     def unique_id(self) -> str:
