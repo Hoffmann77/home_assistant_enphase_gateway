@@ -153,7 +153,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
         """Update saved token in config entry."""
         if not isinstance(self.gateway_reader.auth, EnphaseTokenAuth):
             return
-        _LOGGER.debug("%s: Updating token in config entry from auth", self.name)
+        _LOGGER.debug(f"{self.name}: Updating token in config entry from auth")
         if token := self.gateway_reader.auth.token:
             self._store_data["token"] = token
             self._store_update_pending = True
@@ -175,7 +175,7 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
         # update token in config entry so we can
         # startup without hitting the Cloud API
         # as long as the token is valid
-        _LOGGER.debug("%s: Updating token in config entry from auth", self.name)
+        _LOGGER.debug(f"{self.name}: Updating token in config entry from auth")
         self.hass.config_entries.async_update_entry(
             self.entry,
             data={
@@ -196,16 +196,16 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
                 await gateway_reader.update(limit_endpoints=ALLOWED_ENDPOINTS)
                 return gateway_reader.gateway
 
-            except GatewayAuthenticationError as err: # TODO: improve
+            except GatewayAuthenticationError as err:  # TODO: improve
                 # try to refresh cookies or get a new token
                 # can also be done in the get method
                 raise UpdateFailed(
                     f"Gateway authentication error: {err}"
                 ) from err
-                #continue
+                # continue
 
             except (EnlightenAuthenticationError, GatewayAuthenticationRequired) as err:
-                # token likely expired or firmware changed, try to re-authenticate
+                # token likely expired or firmware changed - re-authenticate
                 # Enlighten credentials are likely to be invalid
                 if self._setup_complete and _try == 0:
                     self._setup_complete = False
@@ -217,4 +217,4 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
                     f"Error communicating with API: {err}"
                 ) from err
 
-        raise RuntimeError("Unreachable code in _async_update_data")  # pragma: no cover
+        raise RuntimeError("Unreachable code in _async_update_data")
