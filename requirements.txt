@@ -1,6 +1,6 @@
 ###### Requirements ######
-
 respx
 httpx
 pytest
+jsonpath
 awesomeversion >= 22.9.0

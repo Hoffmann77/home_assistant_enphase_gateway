@@ -6,10 +6,10 @@ from collections.abc import Iterable
 import httpx
 from awesomeversion import AwesomeVersion
 from envoy_utils.envoy_utils import EnvoyUtils
-from homeassistant.util.network import is_ipv6_address
 
 from .http import async_get
 from .endpoint import GatewayEndpoint
+from .util import is_ipv6_address
 from .gateway import EnvoyLegacy, Envoy, EnvoyS, EnvoySMetered
 from .const import LEGACY_ENVOY_VERSION
 from .gateway_info import GatewayInfo
