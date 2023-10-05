@@ -2,6 +2,7 @@
 respx
 httpx
 pytest
+lxml
 orjson
 xmltodict
 envoy-utils
