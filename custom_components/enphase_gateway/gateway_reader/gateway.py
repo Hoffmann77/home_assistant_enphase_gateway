@@ -246,7 +246,8 @@ class BaseGateway:
         """Run all registered probes of the gateway."""
         _LOGGER.debug(f"Registered probes: {self._gateway_probes.keys()}")
         for probe in self._gateway_probes.keys():
-            getattr(self, probe)()
+            func = getattr(self, probe)
+            func()
             self._probes_finished = True
 
     def __getattribute__(self, name):
