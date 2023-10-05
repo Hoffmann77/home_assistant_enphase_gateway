@@ -135,7 +135,8 @@ async def test_with_7_6_175_firmware():
     gateway_class = "EnvoySMetered"
 
     gateway = await get_gateway(fixture_name)
-    print(gateway.production_meter, gateway.net_consumption_meter)
+    print(gateway.required_endpoints)
+    print(gateway.data)
 
     # gateway class
     assert gateway.__class__.__name__ == gateway_class
