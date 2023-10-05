@@ -83,6 +83,7 @@ async def get_gateway(fixture_name):
 @respx.mock
 async def test_with_3_7_0_firmware():
     """Test with 3.7.0 firmware."""
+    # Config --->
     fixture_name = "3.7.0"
     gateway_class = "EnvoyLegacy"
 
@@ -94,3 +95,27 @@ async def test_with_3_7_0_firmware():
     assert gateway.daily_production == 53.6 * 1000
     assert gateway.seven_days_production == 405 * 1000
     assert gateway.lifetime_production == 133 * 1000000
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_with_3_9_36_firmware():
+    """Test with 3.9.36 firmware."""
+    # Config --->
+    fixture_name = "3.9.36"
+    gateway_class = "Envoy"
+
+    gateway = await get_gateway(fixture_name)
+
+    assert gateway.__class__.__name__ == gateway_class
+
+    assert gateway.production == 1271
+    assert gateway.daily_production == 1460
+    assert gateway.seven_days_production == 130349
+    assert gateway.lifetime_production == 6012540
+    assert gateway.inverters_production[121547060495] == {
+        "serialNumber": "121547060495",
+        "lastReportDate": 1618083959,
+        "lastReportWatts": 135,
+        "maxReportWatts": 228
+    }
