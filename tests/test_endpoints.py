@@ -118,7 +118,7 @@ async def test_with_3_9_36_firmware():
     assert gateway.daily_production == 1460
     assert gateway.seven_days_production == 130349
     assert gateway.lifetime_production == 6012540
-    assert gateway.inverters_production[121547060495] == {
+    assert gateway.inverters_production["121547060495"] == {
         "serialNumber": "121547060495",
         "lastReportDate": 1618083959,
         "lastReportWatts": 135,
@@ -135,6 +135,7 @@ async def test_with_7_6_175_firmware():
     gateway_class = "EnvoySMetered"
 
     gateway = await get_gateway(fixture_name)
+    print(gateway.production_meter, gateway.net_consumption_meter)
 
     # gateway class
     assert gateway.__class__.__name__ == gateway_class
@@ -158,7 +159,7 @@ async def test_with_7_6_175_firmware():
     assert gateway.encharge_power is None
 
     # inverters
-    assert gateway.inverters_production[482243031579] == {
+    assert gateway.inverters_production["482243031579"] == {
         "serialNumber": "482243031579",
         "lastReportDate": 1693744825,
         "devType": 1,
