@@ -76,9 +76,7 @@ async def get_gateway(fixture_name):
 
     await gateway_reader.update()
     await gateway_reader.update()
-    print(gateway_reader.gateway.data)
     return gateway_reader.gateway
-    
 
 
 @pytest.mark.asyncio
