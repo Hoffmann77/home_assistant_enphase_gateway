@@ -9,7 +9,7 @@ import pytest
 from httpx import Response
 
 from custom_components.enphase_gateway.gateway_reader import GatewayReader
-
+from custom_components.enphase_gateway.gateway_reader.auth import LegacyAuth
 
 LOGGER = logging.getLogger(__name__)
 
@@ -68,7 +68,12 @@ async def get_gateway(fixture_name):
 
     gateway_reader = GatewayReader("127.0.0.1")
     await gateway_reader.prepare()
-    await gateway_reader.authenticate("username", "password")
+    gateway_reader.auth = LegacyAuth(
+        gateway_reader.host,
+        "username",
+        "password",
+    )
+    # authenticate("username", "password")
 
     for endpoint in gateway_reader.gateway.required_endpoints:
         return_value = await gen_response(fixture_name, endpoint.path)

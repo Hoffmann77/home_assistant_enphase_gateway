@@ -154,7 +154,7 @@ class GatewayReader:
         else:
             _LOGGER.debug("Using envoy/installer authentication.")
             if not username or username == "installer":
-                username = "installer"
+                username = "installer"  # FIXME: fix legacy auth
                 password = EnvoyUtils.get_password(
                     self._info.serial_number,
                     username
