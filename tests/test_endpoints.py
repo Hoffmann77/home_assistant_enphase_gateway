@@ -95,7 +95,7 @@ async def test_with_3_7_0_firmware():
     assert gateway.daily_production == 53.6 * 1000
     assert gateway.seven_days_production == 405 * 1000
     assert gateway.lifetime_production == 133 * 1000000
-7.6.175_EnvoySMetered
+
 
 @pytest.mark.asyncio
 @respx.mock
@@ -123,8 +123,8 @@ async def test_with_3_9_36_firmware():
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_with_3_9_36_firmware():
-    """Test with 3.9.36 firmware."""
+async def test_with_7_6_175_firmware():
+    """Test with 7.6.175 firmware."""
     # Config --->
     fixture_name = "7.6.175_EnvoySMetered"
     gateway_class = "EnvoySMetered"
@@ -136,7 +136,7 @@ async def test_with_3_9_36_firmware():
 
     # meter configuration
     assert gateway.production_meter == 704643328
-    assert net_consumption_meter == 704643584
+    assert gateway.net_consumption_meter == 704643584
 
     # production data
     assert gateway.production == 488.925
