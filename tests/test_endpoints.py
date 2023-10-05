@@ -95,7 +95,7 @@ async def test_with_3_7_0_firmware():
     assert gateway.daily_production == 53.6 * 1000
     assert gateway.seven_days_production == 405 * 1000
     assert gateway.lifetime_production == 133 * 1000000
-
+7.6.175_EnvoySMetered
 
 @pytest.mark.asyncio
 @respx.mock
@@ -118,4 +118,45 @@ async def test_with_3_9_36_firmware():
         "lastReportDate": 1618083959,
         "lastReportWatts": 135,
         "maxReportWatts": 228
+    }
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_with_3_9_36_firmware():
+    """Test with 3.9.36 firmware."""
+    # Config --->
+    fixture_name = "7.6.175_EnvoySMetered"
+    gateway_class = "EnvoySMetered"
+
+    gateway = await get_gateway(fixture_name)
+
+    # gateway class
+    assert gateway.__class__.__name__ == gateway_class
+
+    # meter configuration
+    assert gateway.production_meter == 704643328
+    assert net_consumption_meter == 704643584
+
+    # production data
+    assert gateway.production == 488.925
+    assert gateway.daily_production == 4425.303
+    assert gateway.seven_days_production == 111093.303
+    assert gateway.lifetime_production == 3183793.885
+    assert gateway.consumption is not None
+    assert gateway.daily_consumption == 19903.621
+    assert gateway.seven_days_consumption == 4.621
+    assert gateway.lifetime_consumption is not None
+
+    # battery data
+    assert gateway.encharge_inventory is None
+    assert gateway.encharge_power is None
+
+    # inverters
+    assert gateway.inverters_production[482243031579] == {
+        "serialNumber": "482243031579",
+        "lastReportDate": 1693744825,
+        "devType": 1,
+        "lastReportWatts": 135,
+        "maxReportWatts": 365
     }

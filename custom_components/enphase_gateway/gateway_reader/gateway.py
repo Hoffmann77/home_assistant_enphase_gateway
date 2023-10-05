@@ -322,7 +322,7 @@ class Envoy(BaseGateway):
 
     daily_production = JsonDescriptor("wattHoursToday", _ENDPOINT)
 
-    seven_days_production = JsonDescriptor("whLastSevenDays", _ENDPOINT)
+    seven_days_production = JsonDescriptor("wattHoursSevenDays", _ENDPOINT)
 
     lifetime_production = JsonDescriptor("wattHoursLifetime", _ENDPOINT)
 
