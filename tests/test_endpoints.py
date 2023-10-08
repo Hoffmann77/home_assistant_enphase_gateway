@@ -42,15 +42,14 @@ async def gen_response(name, path):
         headers = None
 
     with fp.open() as file:
-        response_data = file.read()
-
         if fp.stem == ".json":
             return Response(
                 status_code=status_code,
                 headers=headers,
-                json=json.loads(response_data),
+                json=json.load(file),
             )
         else:
+            response_data = file.read()
             return Response(
                 status_code=status_code,
                 headers=headers,
