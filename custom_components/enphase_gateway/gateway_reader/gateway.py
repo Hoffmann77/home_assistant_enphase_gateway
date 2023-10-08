@@ -487,7 +487,7 @@ class EnvoySMetered(EnvoyS):
     #             f"$.[?(@.eid=={eid})].activePower",
     #             self.data.get("ivp/meters/readings", {})
     #         )
-    #         if isinstance(power, int):
+    #         if isinstance(power, (int, float)):
     #             return power if power > 0 else 0
 
     #     return None
@@ -511,7 +511,7 @@ class EnvoySMetered(EnvoyS):
     #             f"$.[?(@.eid=={eid})].activePower",
     #             self.data.get("ivp/meters/readings", {})
     #         )
-    #         if isinstance(power, int):
+    #         if isinstance(power, (int, float)):
     #             return (power * -1) if power < 0 else 0
 
     #     return None

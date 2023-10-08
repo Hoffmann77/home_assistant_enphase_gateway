@@ -351,14 +351,20 @@ async def async_setup_entry(
     base_sensors = PRODUCTION_SENSORS + CONSUMPTION_SENSORS  # + GRID_SENSORS
     entities = []
 
+    def get_data(attribute):
+        val = getattr(coordinator.data, attribute)
+        if val is not None:
+            return val
+
+        return None
+
     for sensor_description in base_sensors:
-        _LOGGER.debug("Setting up entity: sensor_description.name")
-        if getattr(coordinator.data, sensor_description.key):
+        if getattr(coordinator.data, sensor_description.key, None) is not None:
             entities.append(
                 GatewaySensorEntity(coordinator, sensor_description)
             )
 
-    if (data := coordinator.data.inverters_production) and conf_inverters:
+    if data := coordinator.data.inverters_production and conf_inverters:
         if conf_inverters == "gateway_sensor":
             entities.extend(
                 GatewaySensorInverterEntity(coordinator, description, inverter)
