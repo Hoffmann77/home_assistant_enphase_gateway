@@ -81,8 +81,8 @@ PRODUCTION_SENSORS = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.TOTAL_INCREASING,
         device_class=SensorDeviceClass.ENERGY,
-        suggested_unit_of_measurement=UnitOfEnergy.MEGA_WATT_HOUR,
-        suggested_display_precision=3,
+        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_display_precision=0,
     ),
 )
 
@@ -122,8 +122,8 @@ CONSUMPTION_SENSORS = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.TOTAL_INCREASING,
         device_class=SensorDeviceClass.ENERGY,
-        suggested_unit_of_measurement=UnitOfEnergy.MEGA_WATT_HOUR,
-        suggested_display_precision=3,
+        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_display_precision=0,
     ),
 )
 
@@ -162,7 +162,7 @@ GRID_SENSORS = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.TOTAL_INCREASING,
         device_class=SensorDeviceClass.ENERGY,
-        suggested_unit_of_measurement=UnitOfEnergy.MEGA_WATT_HOUR,
+        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_display_precision=0,
     ),
 )
@@ -350,13 +350,6 @@ async def async_setup_entry(
     conf_encharge_entity = options.get(CONF_ENCHARGE_ENTITIES, False)
     base_sensors = PRODUCTION_SENSORS + CONSUMPTION_SENSORS  # + GRID_SENSORS
     entities = []
-
-    def get_data(attribute):
-        val = getattr(coordinator.data, attribute)
-        if val is not None:
-            return val
-
-        return None
 
     for sensor_description in base_sensors:
         if getattr(coordinator.data, sensor_description.key, None) is not None:
