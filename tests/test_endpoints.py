@@ -86,22 +86,22 @@ async def get_gateway(fixture_name):
     return gateway_reader.gateway
 
 
-# @pytest.mark.asyncio
-# @respx.mock
-# async def test_with_3_7_0_firmware():
-#     """Test with 3.7.0 firmware."""
-#     # Config --->
-#     fixture_name = "3.7.0"
-#     gateway_class = "EnvoyLegacy"
+@pytest.mark.asyncio
+@respx.mock
+async def test_with_3_7_0_firmware():
+    """Test with 3.7.0 firmware."""
+    # Config --->
+    fixture_name = "3.7.0"
+    gateway_class = "EnvoyLegacy"
 
-#     gateway = await get_gateway(fixture_name)
+    gateway = await get_gateway(fixture_name)
 
-#     assert gateway.__class__.__name__ == gateway_class
+    assert gateway.__class__.__name__ == gateway_class
 
-#     assert gateway.production == 6.63 * 1000
-#     assert gateway.daily_production == 53.6 * 1000
-#     assert gateway.seven_days_production == 405 * 1000
-#     assert gateway.lifetime_production == 133 * 1000000
+    assert gateway.production == 6.63 * 1000
+    assert gateway.daily_production == 53.6 * 1000
+    assert gateway.seven_days_production == 405 * 1000
+    assert gateway.lifetime_production == 133 * 1000000
 
 
 # @pytest.mark.asyncio
