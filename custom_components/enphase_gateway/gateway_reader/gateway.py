@@ -111,27 +111,26 @@ class BaseGateway:
 
         for obj in [instance.__class__] + instance.__class__.mro():
             owner_uid = f"{obj.__name__.lower()}"
-            _LOGGER.debug(f"DEBUG: obj {obj}")  # TODO: remove
             for attr_name, attr_val in obj.__dict__.items():
                 # add gateway properties that have been added to the classes
                 # _gateway_properties dict by descriptors.
                 if attr_name == f"{owner_uid}_gateway_properties":
-                    _LOGGER.debug(f"DEBUG: attr {attr_name} items {attr_val.items()}")  # TODO: remove
                     for key, val in attr_val.items():
                         gateway_properties.setdefault(key, val)
 
                 # catch flagged methods and add to instance's
                 # _gateway_properties or _gateway_probes.
                 if endpoint := getattr(attr_val, "gateway_property", None):
-                    _LOGGER.debug(f"DEBUG: property {endpoint}")  # TODO: remove
+                    _LOGGER.debug(f"DEBUG: obj: {obj} property: {attr_name}")
                     if attr_name not in gateway_properties.keys():
-                        #_LOGGER.debug(f"DEBUG: add attr name {attr_name}")  # TODO: remove
                         gateway_properties[attr_name] = endpoint
+                        _LOGGER.debug(f"DEBUG: before: {type(attr_val)}")
                         setattr(
-                            instance,
+                            instance.__class__,  # TODO: fix this issue
                             attr_name,
                             property(attr_val),
                         )
+                        _LOGGER.debug(f"DEBUG: after: {type(attr_val)}")
                 elif endpoint := getattr(attr_val, "gateway_probe", None):
                     gateway_probes.setdefault(attr_name, endpoint)
 
