@@ -41,7 +41,7 @@ async def gen_response(name, path):
         status_code = 200
         headers = {}
 
-    with fp.open("rb") as file:
+    with fp.open("r") as file:
         # if fp.stem == ".json":
         #     return Response(
         #         status_code=status_code,
