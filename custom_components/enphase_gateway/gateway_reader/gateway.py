@@ -122,18 +122,16 @@ class BaseGateway:
                 # catch flagged methods and add to instance's
                 # _gateway_properties or _gateway_probes.
                 if endpoint := getattr(attr_val, "gateway_property", None):
-                    _LOGGER.debug(f"DEBUG: id_1: {id(attr_val)}")
-                    _LOGGER.debug(f"DEBUG: property: {attr_name}")
                     if attr_name not in gateway_properties.keys():
                         gateway_properties[attr_name] = endpoint
-                        _LOGGER.debug(f"DEBUG: before: {id(attr_val)}")
+                        _LOGGER.debug(f"DEBUG: adding: {attr_name} : {attr_val}")
                         setattr(
                             instance.__class__,  # TODO: fix this issue
                             attr_name,
                             property(attr_val),
                         )
-                        _LOGGER.debug(f"DEBUG: id_3: {id(gateway_properties[attr_name])}")
-                        _LOGGER.debug(f"DEBUG: after: {id(getattr(instance.__class__, attr_name))}")
+                        _LOGGER.debug(f"DEBUG: after: {getattr(attr_val, 'gateway_property', 'NOTHING')}")
+
                 elif endpoint := getattr(attr_val, "gateway_probe", None):
                     gateway_probes.setdefault(attr_name, endpoint)
 
