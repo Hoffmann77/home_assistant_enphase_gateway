@@ -11,7 +11,7 @@ from httpx import Response
 from custom_components.enphase_gateway.gateway_reader import GatewayReader
 from custom_components.enphase_gateway.gateway_reader.auth import LegacyAuth
 
-LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 FIXTURES_DIR = Path(__file__).parent.joinpath("fixtures")
 
@@ -36,10 +36,10 @@ async def gen_response(name, path):
         with fp_log.open() as json_file:
             log_data = json.load(json_file)
         status_code = log_data.get("code", 200)
-        headers = log_data.get("headers", None)
+        headers = log_data.get("headers", {})
     else:
         status_code = 200
-        headers = None
+        headers = {}
 
     with fp.open() as file:
         if fp.stem == ".json":
@@ -90,7 +90,10 @@ async def get_gateway(fixture_name):
 
     for endpoint in gateway_reader.gateway.required_endpoints:
         return_value = await gen_response(fixture_name, endpoint.path)
-        LOGGER.debug(f"Return value: {return_value}")
+        _LOGGER.debug(
+            f"TEST response data: {endpoint} : {return_value} : {return_value.encoding} : {return_value.text}"
+        )
+        
         respx.get(f"/{endpoint.path}").mock(return_value=return_value)
 
     await gateway_reader.update()

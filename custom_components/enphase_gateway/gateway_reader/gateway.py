@@ -185,12 +185,16 @@ class BaseGateway:
         for prop, prop_endpoint in self._gateway_properties.items():
             if isinstance(prop_endpoint, GatewayEndpoint):
 
-                value = getattr(self, prop)
-                if self.initial_update_finished and value in (None, [], {}):
+                # value = getattr(self, prop)
+                if self.initial_update_finished:
                     # When the value is None or empty list or dict,
                     # then the endpoint is useless for this token,
                     # so do not require it.
-                    continue
+                    if (val := getattr(self, prop)) in (None, [], {}):
+                        _LOGGER.debug(
+                            f"Skip property: {prop} : {prop_endpoint} : {val}"
+                        )
+                        continue
 
                 update_endpoints(prop_endpoint)
 
@@ -233,6 +237,9 @@ class BaseGateway:
             return
 
         content_type = response.headers.get("content-type", "application/json")
+        _LOGGER.debug(
+            f"Setting endpoint data: {endpoint} : {response} : {content_type} : {response.encoding} : {response.text}"
+        )
         if content_type == "application/json":
             self.data[endpoint.path] = response.json()
         elif content_type in ("text/xml", "application/xml"):
