@@ -71,14 +71,12 @@ async def get_gateway(fixture_name):
         "username",
         "password",
     )
-    # authenticate("username", "password")
 
     for endpoint in gateway_reader.gateway.required_endpoints:
         return_value = await gen_response(fixture_name, endpoint.path)
-        _LOGGER.debug(
-            f"TEST response data: {endpoint} : {return_value.headers} : {return_value.content} : {return_value.encoding} : {return_value.text}"
-        )
-        
+        # _LOGGER.debug(
+        #     f"TEST response data: {endpoint} : {return_value.headers} : {return_value.content} : {return_value.encoding} : {return_value.text}"
+        # )
         respx.get(f"/{endpoint.path}").mock(return_value=return_value)
 
     await gateway_reader.update()

@@ -6,8 +6,7 @@
         "connection": "keep-alive",
         "strict-transport-security": "max-age=63072000; includeSubdomains",
         "x-frame-options": "DENY",
-        "x-content-type-options": "nosniff",
-        "content-type": "application/json"
+        "x-content-type-options": "nosniff"
     },
     "code": 200
 }
