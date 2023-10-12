@@ -99,7 +99,9 @@ class GatewayReader:
             + f"imeter: {self._info.imeter}, "
             + f"web_tokens: {self._info.web_tokens}"
         )
-        _LOGGER.debug(f"Initial Gateway class: {self.gateway.__class__}")
+        _LOGGER.debug(
+            f"Initial Gateway class: {self.gateway.__class__.__name__}"
+        )
 
     async def update(
         self,

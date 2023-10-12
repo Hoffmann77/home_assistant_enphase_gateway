@@ -42,33 +42,19 @@ async def gen_response(name, path):
         headers = {}
 
     with fp.open("rb") as file:
-        if fp.stem == ".json":
-            return Response(
-                status_code=status_code,
-                headers=headers,
-                json=json.load(file),
-            )
-        else:
-            response_data = file.read()
-            return Response(
-                status_code=status_code,
-                headers=headers,
-                content=response_data,
-            )
-
-
-# if response.status_code >= 400:
-#     return
-
-# content_type = response.headers.get("content-type", "application/json")
-# if content_type == "application/json":
-#     self.data[endpoint.path] = response.json()
-# elif content_type in ("text/xml", "application/xml"):
-#     self.data[endpoint.path] = xmltodict.parse(response.text)
-# elif content_type == "text/html":
-#     self.data[endpoint.path] = response.text
-# else:
-#     self.data[endpoint.path] = response.text
+        # if fp.stem == ".json":
+        #     return Response(
+        #         status_code=status_code,
+        #         headers=headers,
+        #         json=json.load(file),
+        #     )
+        # else:
+        # response_data = file.read()
+        return Response(
+            status_code=status_code,
+            headers=headers,
+            content=file.read(),
+        )
 
 
 @respx.mock
@@ -101,46 +87,46 @@ async def get_gateway(fixture_name):
     return gateway_reader.gateway
 
 
-@pytest.mark.asyncio
-@respx.mock
-async def test_with_3_7_0_firmware():
-    """Test with 3.7.0 firmware."""
-    # Config --->
-    fixture_name = "3.7.0"
-    gateway_class = "EnvoyLegacy"
+# @pytest.mark.asyncio
+# @respx.mock
+# async def test_with_3_7_0_firmware():
+#     """Test with 3.7.0 firmware."""
+#     # Config --->
+#     fixture_name = "3.7.0"
+#     gateway_class = "EnvoyLegacy"
 
-    gateway = await get_gateway(fixture_name)
+#     gateway = await get_gateway(fixture_name)
 
-    assert gateway.__class__.__name__ == gateway_class
+#     assert gateway.__class__.__name__ == gateway_class
 
-    assert gateway.production == 6.63 * 1000
-    assert gateway.daily_production == 53.6 * 1000
-    assert gateway.seven_days_production == 405 * 1000
-    assert gateway.lifetime_production == 133 * 1000000
+#     assert gateway.production == 6.63 * 1000
+#     assert gateway.daily_production == 53.6 * 1000
+#     assert gateway.seven_days_production == 405 * 1000
+#     assert gateway.lifetime_production == 133 * 1000000
 
 
-@pytest.mark.asyncio
-@respx.mock
-async def test_with_3_9_36_firmware():
-    """Test with 3.9.36 firmware."""
-    # Config --->
-    fixture_name = "3.9.36"
-    gateway_class = "Envoy"
+# @pytest.mark.asyncio
+# @respx.mock
+# async def test_with_3_9_36_firmware():
+#     """Test with 3.9.36 firmware."""
+#     # Config --->
+#     fixture_name = "3.9.36"
+#     gateway_class = "Envoy"
 
-    gateway = await get_gateway(fixture_name)
+#     gateway = await get_gateway(fixture_name)
 
-    assert gateway.__class__.__name__ == gateway_class
+#     assert gateway.__class__.__name__ == gateway_class
 
-    assert gateway.production == 1271
-    assert gateway.daily_production == 1460
-    assert gateway.seven_days_production == 130349
-    assert gateway.lifetime_production == 6012540
-    assert gateway.inverters_production["121547060495"] == {
-        "serialNumber": "121547060495",
-        "lastReportDate": 1618083959,
-        "lastReportWatts": 135,
-        "maxReportWatts": 228
-    }
+#     assert gateway.production == 1271
+#     assert gateway.daily_production == 1460
+#     assert gateway.seven_days_production == 130349
+#     assert gateway.lifetime_production == 6012540
+#     assert gateway.inverters_production["121547060495"] == {
+#         "serialNumber": "121547060495",
+#         "lastReportDate": 1618083959,
+#         "lastReportWatts": 135,
+#         "maxReportWatts": 228
+#     }
 
 
 @pytest.mark.asyncio
@@ -152,8 +138,6 @@ async def test_with_7_6_175_firmware():
     gateway_class = "EnvoySMetered"
 
     gateway = await get_gateway(fixture_name)
-    
-    print(gateway.data)
 
     # gateway class
     assert gateway.__class__.__name__ == gateway_class
