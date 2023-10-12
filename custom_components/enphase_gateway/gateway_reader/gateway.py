@@ -238,7 +238,7 @@ class BaseGateway:
 
         content_type = response.headers.get("content-type", "application/json")
         _LOGGER.debug(
-            f"Setting endpoint data: {endpoint} : {response} : {content_type} : {response.encoding} : {response.text}"
+            f"Setting endpoint data: {endpoint} : {response} : {content_type} : {response.encoding} : {response.text} : {response.content}"
         )
         if content_type == "application/json":
             self.data[endpoint.path] = response.json()
