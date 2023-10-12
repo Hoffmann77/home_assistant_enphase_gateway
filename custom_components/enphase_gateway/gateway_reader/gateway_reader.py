@@ -227,7 +227,6 @@ class GatewayReader:
             follow_redirects=False
         )
         if self.gateway:
-            _LOGGER.debug(f"Setting endpoint data: {endpoint} : {response}")
             self.gateway.set_endpoint_data(endpoint, response)
 
     async def _async_get(self, url: str, handle_401: bool = True, **kwargs):
