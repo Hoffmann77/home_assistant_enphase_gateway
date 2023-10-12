@@ -91,7 +91,7 @@ async def get_gateway(fixture_name):
     for endpoint in gateway_reader.gateway.required_endpoints:
         return_value = await gen_response(fixture_name, endpoint.path)
         _LOGGER.debug(
-            f"TEST response data: {endpoint} : {return_value} : {return_value.encoding} : {return_value.text}"
+            f"TEST response data: {endpoint} : {return_value.headers} : {return_value.encoding} : {return_value.text}"
         )
         
         respx.get(f"/{endpoint.path}").mock(return_value=return_value)
