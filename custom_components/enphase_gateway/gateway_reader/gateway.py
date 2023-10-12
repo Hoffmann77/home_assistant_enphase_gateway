@@ -128,7 +128,7 @@ class BaseGateway:
                         #_LOGGER.debug(f"DEBUG: add attr name {attr_name}")  # TODO: remove
                         gateway_properties[attr_name] = endpoint
                         setattr(
-                            instance.__class__,
+                            instance,
                             attr_name,
                             property(attr_val),
                         )
