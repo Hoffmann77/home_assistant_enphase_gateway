@@ -111,6 +111,9 @@ class BaseGateway:
 
         for obj in [instance.__class__] + instance.__class__.mro():
             _LOGGER.debug(f"DEBUG: obj: {obj}")
+            if obj.__name__ == "Envoy":
+                _LOGGER.debug(f"DEBUG: Envoy dict: {obj.__dict__.items()}")
+                _LOGGER.debug(f"DEBUG: Envoy has prop: {getattr(obj.inverters_production, 'gateway_property', 'TEST123')}")
             owner_uid = f"{obj.__name__.lower()}"
             for attr_name, attr_val in obj.__dict__.items():
                 # add gateway properties that have been added to the classes
