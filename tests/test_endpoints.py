@@ -57,6 +57,20 @@ async def gen_response(name, path):
             )
 
 
+# if response.status_code >= 400:
+#     return
+
+# content_type = response.headers.get("content-type", "application/json")
+# if content_type == "application/json":
+#     self.data[endpoint.path] = response.json()
+# elif content_type in ("text/xml", "application/xml"):
+#     self.data[endpoint.path] = xmltodict.parse(response.text)
+# elif content_type == "text/html":
+#     self.data[endpoint.path] = response.text
+# else:
+#     self.data[endpoint.path] = response.text
+
+
 @respx.mock
 async def get_gateway(fixture_name):
     """Get the gateway."""
@@ -76,6 +90,7 @@ async def get_gateway(fixture_name):
 
     for endpoint in gateway_reader.gateway.required_endpoints:
         return_value = await gen_response(fixture_name, endpoint.path)
+        LOGGER.debug(f"Return value: {return_value}")
         respx.get(f"/{endpoint.path}").mock(return_value=return_value)
 
     await gateway_reader.update()
