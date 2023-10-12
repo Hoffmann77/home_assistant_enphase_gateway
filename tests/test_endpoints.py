@@ -42,19 +42,18 @@ async def gen_response(name, path):
         headers = {}
 
     with fp.open("r") as file:
-        # if fp.stem == ".json":
-        #     return Response(
-        #         status_code=status_code,
-        #         headers=headers,
-        #         json=json.load(file),
-        #     )
-        # else:
-        # response_data = file.read()
-        return Response(
-            status_code=status_code,
-            headers=headers,
-            content=file.read(),
-        )
+        if headers.get("content-type", None) == "application/json":
+            return Response(
+                status_code=status_code,
+                headers=headers,
+                content=json.load(file),
+            )
+        else:
+            return Response(
+                status_code=status_code,
+                headers=headers,
+                content=file.read(),
+            )
 
 
 @respx.mock
