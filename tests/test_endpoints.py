@@ -46,7 +46,7 @@ async def gen_response(name, path):
             return Response(
                 status_code=status_code,
                 headers=headers,
-                content=json.load(file),
+                json=json.load(file),
             )
         else:
             return Response(
