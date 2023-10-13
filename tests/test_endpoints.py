@@ -1,4 +1,4 @@
-"""Tests module"""
+"""Testing module."""
 
 import json
 import logging
@@ -74,9 +74,6 @@ async def get_gateway(fixture_name):
 
     for endpoint in gateway_reader.gateway.required_endpoints:
         return_value = await gen_response(fixture_name, endpoint.path)
-        # _LOGGER.debug(
-        #     f"TEST response data: {endpoint} : {return_value.headers} : {return_value.content} : {return_value.encoding} : {return_value.text}"
-        # )
         respx.get(f"/{endpoint.path}").mock(return_value=return_value)
 
     await gateway_reader.update()
@@ -87,9 +84,13 @@ async def get_gateway(fixture_name):
 @pytest.mark.asyncio
 @respx.mock
 async def test_with_3_7_0_firmware():
-    """Test with 3.7.0 firmware."""
+    """Test with 3.7.0 firmware.
+
+    Fixtures represent an Envoy-R with the old firmware.
+
+    """
     # Config --->
-    fixture_name = "3.7.0"
+    fixture_name = "3.7.0_envoy_r"
     gateway_class = "EnvoyLegacy"
 
     gateway = await get_gateway(fixture_name)
@@ -106,9 +107,13 @@ async def test_with_3_7_0_firmware():
 @pytest.mark.asyncio
 @respx.mock
 async def test_with_3_9_36_firmware():
-    """Test with 3.9.36 firmware."""
+    """Test with 3.9.36 firmware.
+
+    Fixtures represent an Envoy-R with the new firmware.
+
+    """
     # Config --->
-    fixture_name = "3.9.36"
+    fixture_name = "3.9.36_envoy_r"
     gateway_class = "Envoy"
 
     gateway = await get_gateway(fixture_name)
@@ -131,47 +136,12 @@ async def test_with_3_9_36_firmware():
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_with_7_6_175_firmware_cts_disabled():
-    """Test with 7.6.175 firmware with disabled current transformers."""
-    # Config --->
-    fixture_name = "7.6.175_envoy_s_metered_cts_disabled"
-    gateway_class = "EnvoySMeteredCtDisabled"
-
-    gateway = await get_gateway(fixture_name)
-
-    # gateway class
-    assert gateway.__class__.__name__ == gateway_class
-    # meter configuration
-    assert gateway.production_meter is None
-    assert gateway.net_consumption_meter is None
-    assert gateway.total_consumption_meter is None
-    # production data
-    assert gateway.production == 1322
-    assert gateway.daily_production is None
-    assert gateway.seven_days_production is None
-    assert gateway.lifetime_production == 1152866
-    # consumption data
-    assert gateway.consumption is None
-    assert gateway.daily_consumption is None
-    assert gateway.seven_days_consumption is None
-    assert gateway.lifetime_consumption is None
-    # battery data
-    assert gateway.encharge_inventory is None
-    assert gateway.encharge_power is None
-    # inverters
-    assert gateway.inverters_production["122107032918"] == {
-        "serialNumber": "122107032918",
-        "lastReportDate": 1694181930,
-        "devType": 1,
-        "lastReportWatts": 21,
-        "maxReportWatts": 296
-    }
-
-
-@pytest.mark.asyncio
-@respx.mock
 async def test_with_7_6_175_firmware():
-    """Test with 7.6.175 firmware."""
+    """Test with 7.6.175 firmware.
+
+    Fixtures represent an Envoy-S Metered in a normal configuration.
+
+    """
     # Config --->
     fixture_name = "7.6.175_envoy_s_metered"
     gateway_class = "EnvoySMetered"
@@ -204,4 +174,48 @@ async def test_with_7_6_175_firmware():
         "devType": 1,
         "lastReportWatts": 135,
         "maxReportWatts": 365
+    }
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_with_7_6_175_firmware_cts_disabled():
+    """Test with 7.6.175 firmware with disabled current transformers.
+
+    Fixtures represent an Envoy-S Metered where both the production and
+    the consumption meters are disabled.
+
+    """
+    # Config --->
+    fixture_name = "7.6.175_envoy_s_metered_cts_disabled"
+    gateway_class = "EnvoySMeteredCtDisabled"
+
+    gateway = await get_gateway(fixture_name)
+
+    # gateway class
+    assert gateway.__class__.__name__ == gateway_class
+    # meter configuration
+    assert gateway.production_meter is None
+    assert gateway.net_consumption_meter is None
+    assert gateway.total_consumption_meter is None
+    # production data
+    assert gateway.production == 1322
+    assert gateway.daily_production is None
+    assert gateway.seven_days_production is None
+    assert gateway.lifetime_production == 1152866
+    # consumption data
+    assert gateway.consumption is None
+    assert gateway.daily_consumption is None
+    assert gateway.seven_days_consumption is None
+    assert gateway.lifetime_consumption is None
+    # battery data
+    assert gateway.encharge_inventory is None
+    assert gateway.encharge_power is None
+    # inverters
+    assert gateway.inverters_production["122107032918"] == {
+        "serialNumber": "122107032918",
+        "lastReportDate": 1694181930,
+        "devType": 1,
+        "lastReportWatts": 21,
+        "maxReportWatts": 296
     }

@@ -52,7 +52,7 @@ class PropertyDescriptor(BaseDescriptor):
         if doc is None and fget is not None:
             doc = fget.__doc__
         self.__doc__ = doc
-        self._name = ''
+        self._name = ""
 
     def __get__(self, obj, objtype=None):
         """Magic method. Return the response of the fget function."""
@@ -61,11 +61,6 @@ class PropertyDescriptor(BaseDescriptor):
         if self.fget is None:
             raise AttributeError(f"property '{self._name}' has no getter")
         return self.fget(obj)
-
-    # def getter(self, fget):
-    #     prop = type(self)(fget, self.fset, self.fdel, self.__doc__)
-    #     prop._name = self._name
-    #     return prop
 
 
 class ResponseDescriptor(BaseDescriptor):

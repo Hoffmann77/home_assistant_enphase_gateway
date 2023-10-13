@@ -21,32 +21,31 @@ from .descriptors import (
 _LOGGER = logging.getLogger(__name__)
 
 
-def gateway_property(_func: Callable | None = None, **kwargs) -> None:
-    """Register an instance's method as a property of a gateway.
+def gateway_property(
+        _func: Callable | None = None,
+        **kwargs: dict,
+) -> PropertyDescriptor:
+    """Decorate the given method as gateway property.
+
+    Works identical to the python property decorator.
+    Additionally registers the method to the '_gateway_properties' dict
+    of the methods parent class.
 
     Parameters
     ----------
     _func : Callable, optional
-        Decorated method. The default is None.
-    **kwargs
+        Method to decorate. The default is None.
+    **kwargs : dict
         Optional keyword arguments.
 
     Returns
     -------
-    method
-        Decorated method.
+    PropertyDescriptor
+        Property descriptor calling the method on attribute access.
 
     """
     required_endpoint = kwargs.pop("required_endpoint", None)
     cache = kwargs.pop("cache", 0)
-
-    # def decorator(func):
-    #     endpoint = None
-    #     if required_endpoint:
-    #         endpoint = GatewayEndpoint(required_endpoint, cache)
-
-    #     func.gateway_property = endpoint  # flag method as gateway property
-    #     return func
 
     def decorator(func):
         return PropertyDescriptor(
@@ -123,11 +122,6 @@ class BaseGateway:
         gateway_probes = {}
 
         for obj in [instance.__class__] + instance.__class__.mro():
-            _LOGGER.debug(f"DEBUG: obj: {obj}")
-            # Flag gets lost as soon the code runs!
-            if obj.__name__ == "Envoy":
-                _LOGGER.debug(f"DEBUG: Envoy dict: {obj.__dict__.items()}")
-                _LOGGER.debug(f"DEBUG: Envoy has prop: {getattr(obj.inverters_production, 'gateway_property', 'TEST123')}")
             owner_uid = f"{obj.__name__.lower()}"
             for attr_name, attr_val in obj.__dict__.items():
                 # add gateway properties that have been added to the classes
@@ -138,23 +132,7 @@ class BaseGateway:
 
                 # catch flagged methods and add to instance's
                 # _gateway_properties or _gateway_probes.
-                # if endpoint := getattr(attr_val, "gateway_property", None):
-                #     # Somehow the flag gets lost here
-                #     if attr_name not in gateway_properties.keys():
-                #         gateway_properties[attr_name] = endpoint
-                #         _LOGGER.debug(f"DEBUG: adding: {attr_name} : {attr_val}")
-                #         # TODO: function gets lost here
-                #         # Envoy sets the property on itself during the first call.
-                #         # In the second call its already a property if its gets called again.
-                #         # maybe mark flagged functions with a keyword like _flagged
-                #         setattr(
-                #             instance.__class__,
-                #             attr_name,
-                #             property(attr_val),
-                #         )
-                #         _LOGGER.debug(f"DEBUG: after: {getattr(obj, attr_name, 'NOTHING')}")
-
-                elif endpoint := getattr(attr_val, "gateway_probe", None):
+                if endpoint := getattr(attr_val, "gateway_probe", None):
                     gateway_probes.setdefault(attr_name, endpoint)
 
         instance._gateway_properties = gateway_properties
@@ -211,11 +189,10 @@ class BaseGateway:
         for prop, prop_endpoint in self._gateway_properties.items():
             if isinstance(prop_endpoint, GatewayEndpoint):
 
-                # value = getattr(self, prop)
                 if self.initial_update_finished:
                     # When the value is None or empty list or dict,
                     # then the endpoint is useless for this token,
-                    # so do not require it.
+                    # so we do not require it.
                     if (val := getattr(self, prop)) in (None, [], {}):
                         _LOGGER.debug(
                             f"Skip property: {prop} : {prop_endpoint} : {val}"
@@ -414,12 +391,23 @@ class EnvoyS(Envoy):
 
         return None
 
-    # @gateway_property
-    # def ac_battery(self) -> ACBattery | None:
+    # @gateway_property(required_endpoint="ivp/ensemble/secctrl")
+    # def ensemble_secctrl(self):
+    #     """Ensemble secctrl data."""
+    #     data = self.data.get("ivp/ensemble/secctrl", {})
+    #     result = JsonDescriptor.resolve("", data)
+    #     if self.initial_update_finished is False:
+    #         if self.encharge_inventory is None:
+    #             return None
+
+    #     return result if result else None
+
+    # @gateway_property(required_endpoint="production.json")
+    # def ac_battery(self):
     #     """AC battery data."""
     #     data = self.data.get("production.json", {})
     #     result = JsonDescriptor.resolve("storage[?(@.percentFull)]", data)
-    #     return ACBattery(result) if result else None
+    #     return result if result else None
 
     # @gateway_property(required_endpoint="ensemble_submod")
     # def ensemble_submod(self):
