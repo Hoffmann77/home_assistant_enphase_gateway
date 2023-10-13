@@ -47,20 +47,13 @@ def gateway_property(_func: Callable | None = None, **kwargs) -> None:
 
     #     func.gateway_property = endpoint  # flag method as gateway property
     #     return func
-    
-    def decorator(func):
-        endpoint = None
-        if required_endpoint:
-            endpoint = GatewayEndpoint(required_endpoint, cache)
 
-        #func._gateway_property = True  # flag method as gateway property
-        #func._required_endpoint = endpoint
-        #return func
+    def decorator(func):
         return PropertyDescriptor(
             fget=func,
             doc=None,
             required_endpoint=required_endpoint,
-            cache=cache
+            cache=cache,
         )
 
     return decorator if _func is None else decorator(_func)
