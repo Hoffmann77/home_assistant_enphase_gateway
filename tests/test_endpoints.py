@@ -146,10 +146,10 @@ async def test_with_7_6_175_firmware_cts_disabled():
     assert gateway.net_consumption_meter is None
     assert gateway.total_consumption_meter is None
     # production data
-    assert gateway.production == 1317
+    assert gateway.production == 1322
     assert gateway.daily_production is None
     assert gateway.seven_days_production is None
-    assert gateway.lifetime_production == 1152900
+    assert gateway.lifetime_production == 1152866
     # consumption data
     assert gateway.consumption is None
     assert gateway.daily_consumption is None
