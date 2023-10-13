@@ -32,6 +32,46 @@ class BaseDescriptor:
                 setattr(owner, uid, {name: _endpoint})
 
 
+class PropertyDescriptor(BaseDescriptor):
+    "Emulate PyProperty_Type() in Objects/descrobject.c"
+
+    def __init__(
+            self,
+            fget=None,
+            doc=None,
+            required_endpoint: str | None = None,
+            cache: int = 0,
+            
+    ) -> None:
+        """Initialize instance of PropertyDescriptor."""
+        super().__init__(required_endpoint, cache)
+        self.fget = fget
+        if doc is None and fget is not None:
+            doc = fget.__doc__
+        self.__doc__ = doc
+        self._name = ''
+
+    # def __set_name__(self, owner, name):
+    #     self._name = name
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        if self.fget is None:
+            raise AttributeError(f"property '{self._name}' has no getter")
+        return self.fget(obj)
+
+
+    def getter(self, fget):
+        prop = type(self)(fget, self.fset, self.fdel, self.__doc__)
+        prop._name = self._name
+        return prop
+
+
+
+
+
+
 class ResponseDescriptor(BaseDescriptor):
     """Descriptor returning the raw response."""
 

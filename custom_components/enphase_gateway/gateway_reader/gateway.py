@@ -10,7 +10,12 @@ from httpx import Response
 
 from .const import AVAILABLE_PROPERTIES
 from .endpoint import GatewayEndpoint
-from .descriptors import ResponseDescriptor, JsonDescriptor, RegexDescriptor
+from .descriptors import (
+    PropertyDescriptor,
+    ResponseDescriptor,
+    JsonDescriptor,
+    RegexDescriptor,
+)
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,13 +40,28 @@ def gateway_property(_func: Callable | None = None, **kwargs) -> None:
     required_endpoint = kwargs.pop("required_endpoint", None)
     cache = kwargs.pop("cache", 0)
 
+    # def decorator(func):
+    #     endpoint = None
+    #     if required_endpoint:
+    #         endpoint = GatewayEndpoint(required_endpoint, cache)
+
+    #     func.gateway_property = endpoint  # flag method as gateway property
+    #     return func
+    
     def decorator(func):
         endpoint = None
         if required_endpoint:
             endpoint = GatewayEndpoint(required_endpoint, cache)
 
-        func.gateway_property = endpoint  # flag method as gateway property
-        return func
+        #func._gateway_property = True  # flag method as gateway property
+        #func._required_endpoint = endpoint
+        #return func
+        return PropertyDescriptor(
+            fget=func,
+            doc=None,
+            required_endpoint=required_endpoint,
+            cache=cache
+        )
 
     return decorator if _func is None else decorator(_func)
 
@@ -125,17 +145,21 @@ class BaseGateway:
 
                 # catch flagged methods and add to instance's
                 # _gateway_properties or _gateway_probes.
-                if endpoint := getattr(attr_val, "gateway_property", None):
-                    # Somehow the flag gets lost here
-                    if attr_name not in gateway_properties.keys():
-                        gateway_properties[attr_name] = endpoint
-                        _LOGGER.debug(f"DEBUG: adding: {attr_name} : {attr_val}")
-                        setattr(
-                            instance.__class__,  # TODO: fix this issue
-                            attr_name,
-                            property(attr_val),
-                        )
-                        _LOGGER.debug(f"DEBUG: after: {getattr(obj, attr_name, 'NOTHING')}")
+                # if endpoint := getattr(attr_val, "gateway_property", None):
+                #     # Somehow the flag gets lost here
+                #     if attr_name not in gateway_properties.keys():
+                #         gateway_properties[attr_name] = endpoint
+                #         _LOGGER.debug(f"DEBUG: adding: {attr_name} : {attr_val}")
+                #         # TODO: function gets lost here
+                #         # Envoy sets the property on itself during the first call.
+                #         # In the second call its already a property if its gets called again.
+                #         # maybe mark flagged functions with a keyword like _flagged
+                #         setattr(
+                #             instance.__class__,
+                #             attr_name,
+                #             property(attr_val),
+                #         )
+                #         _LOGGER.debug(f"DEBUG: after: {getattr(obj, attr_name, 'NOTHING')}")
 
                 elif endpoint := getattr(attr_val, "gateway_probe", None):
                     gateway_probes.setdefault(attr_name, endpoint)
