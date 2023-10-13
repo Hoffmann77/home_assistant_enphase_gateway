@@ -33,7 +33,11 @@ class BaseDescriptor:
 
 
 class PropertyDescriptor(BaseDescriptor):
-    "Emulate PyProperty_Type() in Objects/descrobject.c"
+    """Property descriptor.
+
+    A pure python implementation of property that registers the
+    required endpoint and the caching interval.
+    """
 
     def __init__(
             self,
@@ -41,7 +45,6 @@ class PropertyDescriptor(BaseDescriptor):
             doc=None,
             required_endpoint: str | None = None,
             cache: int = 0,
-            
     ) -> None:
         """Initialize instance of PropertyDescriptor."""
         super().__init__(required_endpoint, cache)
@@ -51,25 +54,18 @@ class PropertyDescriptor(BaseDescriptor):
         self.__doc__ = doc
         self._name = ''
 
-    # def __set_name__(self, owner, name):
-    #     self._name = name
-
     def __get__(self, obj, objtype=None):
+        """Magic method. Return the response of the fget function."""
         if obj is None:
             return self
         if self.fget is None:
             raise AttributeError(f"property '{self._name}' has no getter")
         return self.fget(obj)
 
-
-    def getter(self, fget):
-        prop = type(self)(fget, self.fset, self.fdel, self.__doc__)
-        prop._name = self._name
-        return prop
-
-
-
-
+    # def getter(self, fget):
+    #     prop = type(self)(fget, self.fset, self.fdel, self.__doc__)
+    #     prop._name = self._name
+    #     return prop
 
 
 class ResponseDescriptor(BaseDescriptor):
