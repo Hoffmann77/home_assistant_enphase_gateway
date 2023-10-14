@@ -357,7 +357,7 @@ async def async_setup_entry(
                 GatewaySensorEntity(coordinator, sensor_description)
             )
 
-    if data := coordinator.data.inverters_production and conf_inverters:
+    if (data := coordinator.data.inverters_production) and conf_inverters:
         if conf_inverters == "gateway_sensor":
             entities.extend(
                 GatewaySensorInverterEntity(coordinator, description, inverter)
