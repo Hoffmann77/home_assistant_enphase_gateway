@@ -6,7 +6,7 @@ from textwrap import dedent
 
 from jsonpath import jsonpath
 
-from endpoint import GatewayEndpoint
+from .endpoint import GatewayEndpoint
 
 
 _LOGGER = logging.getLogger(__name__)
