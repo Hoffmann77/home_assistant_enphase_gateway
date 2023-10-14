@@ -99,7 +99,9 @@ class GatewayReader:
             + f"imeter: {self._info.imeter}, "
             + f"web_tokens: {self._info.web_tokens}"
         )
-        _LOGGER.debug(f"Initial Gateway class: {self.gateway.__class__}")
+        _LOGGER.debug(
+            f"Initial Gateway class: {self.gateway.__class__.__name__}"
+        )
 
     async def update(
         self,
@@ -227,7 +229,6 @@ class GatewayReader:
             follow_redirects=False
         )
         if self.gateway:
-            _LOGGER.debug(f"Setting endpoint data: {endpoint} : {response}")
             self.gateway.set_endpoint_data(endpoint, response)
 
     async def _async_get(self, url: str, handle_401: bool = True, **kwargs):

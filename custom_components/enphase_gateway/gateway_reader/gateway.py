@@ -10,38 +10,50 @@ from httpx import Response
 
 from .const import AVAILABLE_PROPERTIES
 from .endpoint import GatewayEndpoint
-from .descriptors import ResponseDescriptor, JsonDescriptor, RegexDescriptor
+from .descriptors import (
+    PropertyDescriptor,
+    ResponseDescriptor,
+    JsonDescriptor,
+    RegexDescriptor,
+)
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def gateway_property(_func: Callable | None = None, **kwargs) -> None:
-    """Register an instance's method as a property of a gateway.
+def gateway_property(
+        _func: Callable | None = None,
+        **kwargs: dict,
+) -> PropertyDescriptor:
+    """Decorate the given method as gateway property.
+
+    Works identical to the python property decorator.
+    Additionally registers the method to the '_gateway_properties' dict
+    of the methods parent class.
 
     Parameters
     ----------
     _func : Callable, optional
-        Decorated method. The default is None.
-    **kwargs
+        Method to decorate. The default is None.
+    **kwargs : dict
         Optional keyword arguments.
 
     Returns
     -------
-    method
-        Decorated method.
+    PropertyDescriptor
+        Property descriptor calling the method on attribute access.
 
     """
     required_endpoint = kwargs.pop("required_endpoint", None)
     cache = kwargs.pop("cache", 0)
 
     def decorator(func):
-        endpoint = None
-        if required_endpoint:
-            endpoint = GatewayEndpoint(required_endpoint, cache)
-
-        func.gateway_property = endpoint  # flag method as gateway property
-        return func
+        return PropertyDescriptor(
+            fget=func,
+            doc=None,
+            required_endpoint=required_endpoint,
+            cache=cache,
+        )
 
     return decorator if _func is None else decorator(_func)
 
@@ -120,15 +132,7 @@ class BaseGateway:
 
                 # catch flagged methods and add to instance's
                 # _gateway_properties or _gateway_probes.
-                if endpoint := getattr(attr_val, "gateway_property", None):
-                    if attr_name not in gateway_properties.keys():
-                        gateway_properties[attr_name] = endpoint
-                        setattr(
-                            instance.__class__,
-                            attr_name,
-                            property(attr_val),
-                        )
-                elif endpoint := getattr(attr_val, "gateway_probe", None):
+                if endpoint := getattr(attr_val, "gateway_probe", None):
                     gateway_probes.setdefault(attr_name, endpoint)
 
         instance._gateway_properties = gateway_properties
@@ -185,12 +189,15 @@ class BaseGateway:
         for prop, prop_endpoint in self._gateway_properties.items():
             if isinstance(prop_endpoint, GatewayEndpoint):
 
-                value = getattr(self, prop)
-                if self.initial_update_finished and value in (None, [], {}):
+                if self.initial_update_finished:
                     # When the value is None or empty list or dict,
                     # then the endpoint is useless for this token,
-                    # so do not require it.
-                    continue
+                    # so we do not require it.
+                    if (val := getattr(self, prop)) in (None, [], {}):
+                        _LOGGER.debug(
+                            f"Skip property: {prop} : {prop_endpoint} : {val}"
+                        )
+                        continue
 
                 update_endpoints(prop_endpoint)
 
@@ -233,6 +240,9 @@ class BaseGateway:
             return
 
         content_type = response.headers.get("content-type", "application/json")
+        _LOGGER.debug(
+            f"Setting endpoint data: {endpoint} : {response.content}"
+        )
         if content_type == "application/json":
             self.data[endpoint.path] = response.json()
         elif content_type in ("text/xml", "application/xml"):
@@ -381,12 +391,23 @@ class EnvoyS(Envoy):
 
         return None
 
-    # @gateway_property
-    # def ac_battery(self) -> ACBattery | None:
+    # @gateway_property(required_endpoint="ivp/ensemble/secctrl")
+    # def ensemble_secctrl(self):
+    #     """Ensemble secctrl data."""
+    #     data = self.data.get("ivp/ensemble/secctrl", {})
+    #     result = JsonDescriptor.resolve("", data)
+    #     if self.initial_update_finished is False:
+    #         if self.encharge_inventory is None:
+    #             return None
+
+    #     return result if result else None
+
+    # @gateway_property(required_endpoint="production.json")
+    # def ac_battery(self):
     #     """AC battery data."""
     #     data = self.data.get("production.json", {})
     #     result = JsonDescriptor.resolve("storage[?(@.percentFull)]", data)
-    #     return ACBattery(result) if result else None
+    #     return result if result else None
 
     # @gateway_property(required_endpoint="ensemble_submod")
     # def ensemble_submod(self):

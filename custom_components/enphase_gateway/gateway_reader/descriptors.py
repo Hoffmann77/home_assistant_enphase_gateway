@@ -32,6 +32,37 @@ class BaseDescriptor:
                 setattr(owner, uid, {name: _endpoint})
 
 
+class PropertyDescriptor(BaseDescriptor):
+    """Property descriptor.
+
+    A pure python implementation of property that registers the
+    required endpoint and the caching interval.
+    """
+
+    def __init__(
+            self,
+            fget=None,
+            doc=None,
+            required_endpoint: str | None = None,
+            cache: int = 0,
+    ) -> None:
+        """Initialize instance of PropertyDescriptor."""
+        super().__init__(required_endpoint, cache)
+        self.fget = fget
+        if doc is None and fget is not None:
+            doc = fget.__doc__
+        self.__doc__ = doc
+        self._name = ""
+
+    def __get__(self, obj, objtype=None):
+        """Magic method. Return the response of the fget function."""
+        if obj is None:
+            return self
+        if self.fget is None:
+            raise AttributeError(f"property '{self._name}' has no getter")
+        return self.fget(obj)
+
+
 class ResponseDescriptor(BaseDescriptor):
     """Descriptor returning the raw response."""
 
