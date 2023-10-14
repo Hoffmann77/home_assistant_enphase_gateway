@@ -586,11 +586,16 @@ class EnvoySMetered(EnvoyS):
         if eid := self.net_consumption_meter:
             prod = self.production
             cons = JsonDescriptor.resolve(
-                f"$.[?(@.eid=={eid})]",
+                f"$.[?(@.eid=={eid})].activePower",
                 self.data.get("ivp/meters/readings", {})
             )
             if prod and cons:
-                return prod + cons["activePower"]
+                return prod + cons
+        elif eid := self.total_consumption_meter:
+            return JsonDescriptor.resolve(
+                f"$.[?(@.eid=={eid})].activePower",
+                self.data.get("ivp/meters/readings", {})
+            )
 
         return None
 
@@ -621,6 +626,12 @@ class EnvoySMetered(EnvoyS):
             )
             if prod and cons:
                 return prod - (cons["actEnergyRcvd"] - cons["actEnergyDlvd"])
+        elif eid := self.total_consumption_meter:
+            # TODO: collect fixtures and validate
+            return JsonDescriptor.resolve(
+                f"$.[?(@.eid=={eid})].actEnergyRcvd",
+                self.data.get("ivp/meters/readings", {})
+            )
 
         return None
 
