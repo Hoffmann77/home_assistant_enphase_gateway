@@ -160,10 +160,12 @@ async def test_with_7_6_175_firmware():
     assert gateway.seven_days_production == 111093.303
     assert gateway.lifetime_production == 3183793.885
     # consumption data
-    assert gateway.consumption is not None
+    assert gateway.consumption == (488.925 - 36.162)
     assert gateway.daily_consumption == 19903.621
     assert gateway.seven_days_consumption == 4.621
-    assert gateway.lifetime_consumption is not None
+    assert gateway.lifetime_consumption == (
+        3183793.885 - (1776768.769 - 3738205.282)
+    )
     # battery data
     assert gateway.encharge_inventory is None
     assert gateway.encharge_power is None
