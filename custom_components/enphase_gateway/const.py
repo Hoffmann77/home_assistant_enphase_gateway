@@ -20,6 +20,13 @@ COORDINATOR = "coordinator"
 
 NAME = "name"
 
+DATA_UPDATE_INTERVAL = {
+    "slow": 120,
+    "moderate": 60,
+    "fast": 30,
+    "extra_fast": 15,
+}
+
 CONFIG_FLOW_USER_ERROR = (
     EnlightenAuthenticationError,
     EnlightenCommunicationError,
@@ -48,6 +55,7 @@ CONF_TOKEN_RAW = "token_raw"
 CONF_CACHE_TOKEN = "cache_token"
 CONF_EXPOSE_TOKEN = "expose_token"
 CONF_EXPOSURE_PATH = "exposure_path"
+CONF_DATA_UPDATE_INTERVAL = "data_update_interval"
 CONF_GET_INVERTERS = "get_inverters"
 CONF_ENCHARGE_ENTITIES = "encharge_entities"
 CONF_USE_LEGACY_NAME = "use_lagacy_name"

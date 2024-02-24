@@ -5,8 +5,9 @@ import logging
 from textwrap import dedent
 
 from jsonpath import jsonpath
+from jsonpath_ng.ext import parse
 
-from .endpoint import GatewayEndpoint
+from endpoint import GatewayEndpoint
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -110,6 +111,28 @@ class JsonDescriptor(BaseDescriptor):
 
         _LOGGER.debug(f"The configured jsonpath: {path}, did return {result}")
         return result
+
+    def resolve_ng(
+            cls,
+            path: str,
+            data: dict,
+            default: str | int | float = None,
+    ):
+        """Classmethod to resolve a given jsonpath using jsonpath-ng."""
+        if path == "":
+            return data
+
+        jsonpath_expr = parse(dedent(path))
+        result = [match.value for match in jsonpath_expr.find(data)]
+
+        if result == []:
+            _LOGGER.debug(
+                f"The configured jsonpath: {path}, did not return anything!"
+            )
+            return default
+
+        if isinstance(result, list) and len(result) == 1:
+            result = result[0]
 
 
 class RegexDescriptor(BaseDescriptor):

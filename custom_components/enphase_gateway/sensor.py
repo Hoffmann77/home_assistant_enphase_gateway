@@ -168,41 +168,46 @@ GRID_SENSORS = (
 )
 
 
-AC_BATTERY_SENSORS = (
+ACB_STORAGE_SENSORS = (
     SensorEntityDescription(
         key="whNow",
         name="AC-Battery Capacity",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.ENERGY_STORAGE
+        device_class=SensorDeviceClass.ENERGY_STORAGE,
+        access_fn=lambda model: model.whNow,
     ),
     SensorEntityDescription(
         key="percentFull",
         name="AC-Battery Soc",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.BATTERY
+        device_class=SensorDeviceClass.BATTERY,
+        access_fn=lambda model: model.percentFull,
     ),
     SensorEntityDescription(
         key="wNow",
         name="AC-Battery power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.POWER
+        device_class=SensorDeviceClass.POWER,
+        access_fn=lambda model: model.wNow,
     ),
     SensorEntityDescription(
-        key="charge",
+        key="charging_power",
         name="AC-Battery charging power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.POWER
+        device_class=SensorDeviceClass.POWER,
+        access_fn=lambda model: model.charging_power,
     ),
     SensorEntityDescription(
-        key="discharge",
+        key="discharging_power",
         name="AC-Battery discharging power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.POWER
+        device_class=SensorDeviceClass.POWER,
+        access_fn=lambda model: model.discharging_power,
     ),
 )
 
@@ -541,17 +546,25 @@ class ACBatteryEntity(GatewaySystemSensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        storage = self.data.acb_storage
-        if self.entity_description.key in {"charge", "discharge"}:
-            if (power := storage.get("wNow")) is not None:
-                if self.entity_description.key == "charge":
-                    return (power * -1) if power < 0 else 0
-                elif self.entity_description.key == "discharge":
-                    return power if power > 0 else 0
-        else:
-            return storage.get(self.entity_description.key)
+        if model := self.data.acb_storage is None:
+            return None
 
-        return None
+        return self.entity_description.access_fn(model)
+
+    # @property
+    # def native_value(self):
+    #     """Return the state of the sensor."""
+    #     storage = self.data.acb_storage
+    #     if self.entity_description.key in {"charge", "discharge"}:
+    #         if (power := storage.get("wNow")) is not None:
+    #             if self.entity_description.key == "charge":
+    #                 return (power * -1) if power < 0 else 0
+    #             elif self.entity_description.key == "discharge":
+    #                 return power if power > 0 else 0
+    #     else:
+    #         return storage.get(self.entity_description.key)
+
+    #     return None
 
 
 class EnchargeAggregatedEntity(GatewaySystemSensorEntity):

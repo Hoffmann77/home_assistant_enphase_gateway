@@ -17,6 +17,8 @@ from .descriptors import (
     RegexDescriptor,
 )
 
+from .models.acb_storage import ACBatteryStorage
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -337,7 +339,7 @@ class Envoy(BaseGateway):
 
     lifetime_production = JsonDescriptor("wattHoursLifetime", _ENDPOINT)
 
-    @gateway_property(required_endpoint=_ENDPOINT + "/inverters")
+    @gateway_property(required_endpoint=f"{_ENDPOINT}/inverters")
     def inverters_production(self):
         """Single inverter production data."""
         data = self.data.get(self._ENDPOINT + "/inverters")
@@ -429,10 +431,16 @@ class EnvoyS(Envoy):
 
     @gateway_property(required_endpoint="production.json")
     def acb_storage(self):
-        """ACB storage data."""
-        data = self.data.get("production.json", {})
-        result = JsonDescriptor.resolve("storage[?(@.percentFull)]", data)
-        return result if result else {}
+        """AC battery storage data."""
+        # storage is installed if the 'percentFull' key exists.
+        data = JsonDescriptor.resolve(
+            "storage[?(@.percentFull)]",
+            self.data.get("production.json", {})
+        )
+        if data is not None:
+            return ACBatteryStorage.from_response(data)
+
+        return None
 
     @gateway_property
     def battery_storage(self):
