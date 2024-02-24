@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 
 @dataclass(slots=True)
-class AcBattery:
+class ACBatteryStorage:
     """Model for the legacy Enphase AC Battery."""
 
     # percentFull = JsonDescriptor("percentFull")
