@@ -9,5 +9,6 @@ xmltodict
 envoy-utils
 beautifulsoup4
 jsonpath
+jsonpath-ng
 homeassistant
 awesomeversion >= 22.9.0
