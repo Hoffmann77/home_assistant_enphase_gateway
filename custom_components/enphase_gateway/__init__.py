@@ -43,6 +43,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Handle options update."""
     await hass.config_entries.async_reload(entry.entry_id)
+    # !!! Prototype for deleting inverter entities after an options flow.
+    # registry = entity_registry.async_get(hass)
+    # entities = entity_registry.async_entries_for_config_entry(
+    #     registry, entry.entry_id
+    # )
+    # for entity in entities:
+    #     if entity.inverter_type != entry.options[CONF_INVERTERS]:
+    #         registry.async_remove(entity.entity_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
