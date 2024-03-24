@@ -79,6 +79,18 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
             # always_update=False, # TODO: Added in ha 2023.9
         )
 
+    @staticmethod
+    async def async_remove_store(
+        cls, hass: HomeAssistant, entry: ConfigEntry
+    ) -> None:
+        """Remove all data from the store."""
+        store = Store(
+            hass,
+            STORAGE_VERSION,
+            ".".join([STORAGE_KEY, entry.entry_id]),
+        )
+        await store.async_remove()
+
     async def _async_setup_and_authenticate(self) -> None:
         """Set up the gateway reader and authenticate."""
         gateway_reader = self.gateway_reader
