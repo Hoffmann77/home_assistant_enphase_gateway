@@ -214,7 +214,7 @@ async def test_with_7_6_175_firmware_cts_disabled():
     assert gateway.encharge_inventory is None
     assert gateway.encharge_power is None
     # inverters
-    assert gateway.inverters_production["122107032918"] == {
+    assert gateway.inverters["122107032918"] == {
         "serialNumber": "122107032918",
         "lastReportDate": 1694181930,
         "devType": 1,
