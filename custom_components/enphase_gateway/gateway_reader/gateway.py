@@ -347,8 +347,11 @@ class Envoy(BaseGateway):
         """Single inverter production data."""
         inverters = self.data.get(self._ENDPOINT + "/inverters")
         if inverters:
-            def to_dt(value):
-                return dt_util.utc_from_timestamp(value["lastReportDate"])
+            def to_dt(inverter):
+                inverter["lastReportDate"] = dt_util.utc_from_timestamp(
+                    inverter["lastReportDate"]
+                )
+                return inverter
 
             inverters = map(to_dt, inverters)
             return {inv["serialNumber"]: inv for inv in inverters}
