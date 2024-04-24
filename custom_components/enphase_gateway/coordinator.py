@@ -230,3 +230,9 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
                 ) from err
 
         raise RuntimeError("Unreachable code in _async_update_data")
+
+
+class GatewayCoordinator(GatewayReaderUpdateCoordinator):
+    """Copy of GatewayReaderUpdateCoordinator."""
+
+    pass

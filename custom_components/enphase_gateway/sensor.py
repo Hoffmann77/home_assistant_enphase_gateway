@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
@@ -13,6 +15,7 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntityDescription,
     SensorStateClass,
+    SensorEntity,
 )
 from homeassistant.const import (
     PERCENTAGE,
@@ -22,26 +25,37 @@ from homeassistant.const import (
 )
 
 from .const import DOMAIN,  ICON, CONF_INVERTERS, CONF_ENCHARGE_ENTITIES
-from .entity import GatewaySensorBaseEntity
-from .coordinator import GatewayReaderUpdateCoordinator
+from .entity import GatewaySensorBaseEntity, GatewayCoordinatorEntity
+from .coordinator import GatewayReaderUpdateCoordinator, GatewayCoordinator
 
 
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True, kw_only=True)
+class InverterSensorEntityDescription(SensorEntityDescription):
+    """Provide a description of an inverter sensor."""
+
+    value_fn: Callable[[dict], float | None]
+    exists_fn: Callable[[dict], bool] = lambda _: True
+
+
 INVERTER_SENSORS = (
-    SensorEntityDescription(
+    InverterSensorEntityDescription(
         key="lastReportWatts",
-        name="Power",
+        # name="Power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
+        value_fn=lambda inverter: inverter.get("lastReportWatts"),
+        # exists_fn=lambda entry: bool(entry.options.get("pv_signal")),
     ),
-    SensorEntityDescription(
+    InverterSensorEntityDescription(
         key="lastReportDate",
         name="Last reported",
         device_class=SensorDeviceClass.TIMESTAMP,
-        entity_registry_enabled_default=True,  # TODO: check feature
+        entity_registry_enabled_default=False,
+        value_fn=lambda inverter: inverter.get("lastReportDate"),
     ),
 )
 
@@ -365,13 +379,13 @@ async def async_setup_entry(
     if (data := coordinator.data.inverters_production) and conf_inverters:
         if conf_inverters == "gateway_sensor":
             entities.extend(
-                GatewaySensorInverterEntity(coordinator, description, inverter)
+                InverterEntity(coordinator, description, inverter, False)
                 for description in INVERTER_SENSORS[:1]
                 for inverter in data
             )
         if conf_inverters == "device":
             entities.extend(
-                GatewayInverterEntity(coordinator, description, inverter)
+                InverterEntity(coordinator, description, inverter, True)
                 for description in INVERTER_SENSORS
                 for inverter in data
             )
@@ -404,6 +418,73 @@ async def async_setup_entry(
 
     _LOGGER.debug(f"Adding entities: {entities}")
     async_add_entities(entities)
+
+
+class GatewaySensorEntity(GatewayCoordinatorEntity, SensorEntity):
+    """Implementation of the Gateway sensor."""
+
+    def __init__(
+        self,
+        coordinator: GatewayCoordinator,
+        description: SensorEntityDescription,
+    ) -> None:
+        """Initialize the sensor entity."""
+        super().__init__(coordinator, description)
+        self._attr_unique_id = f"{self.gateway_serial_num}_{description.key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, str(self.gateway_serial_num))},
+            manufacturer="Enphase",
+            model=self.coordinator.gateway_reader.name,
+            name=self.coordinator.name,
+            sw_version=str(self.coordinator.gateway_reader.firmware_version),
+            serial_number=self.gateway_serial_num,
+        )
+
+
+class InverterEntity(GatewaySensorEntity):
+    """Inverter entity."""
+
+    entity_description: InverterSensorEntityDescription
+
+    def __init__(
+            self,
+            coordinator,
+            description,
+            serial_number: str,
+            as_device: bool,
+    ) -> None:
+        """Initialize Gateway inverter entity."""
+        super().__init__(coordinator, description)
+        self._serial_number = serial_number
+        self._attr_unique_id = f"{serial_number}_{description.key}"
+        if as_device:
+            self._attr_device_info = DeviceInfo(
+                identifiers={(DOMAIN, str(self._serial_number))},
+                name=f"Inverter {serial_number}",
+                manufacturer="Enphase",
+                model="Inverter",
+                via_device=(DOMAIN, self.gateway_serial_num),
+            )
+
+    @property
+    def name(self):
+        """Return the entity name."""
+        return f"Inverter {self._serial_number}"
+        # return f"{self.entity_description.name} {self._serial_number}"
+
+    @property
+    def native_value(self):
+        """Return the state of the sensor."""
+        inverters = self.data.get("inverters")
+        assert inverters is not None
+        if self._serial_number not in inverters:
+            _LOGGER.debug(
+                f"Inverter {self._serial_number} not in returned inverters.",
+            )
+            return None
+
+        inverter = inverters.get(self._serial_number, {})
+        return self.entity_description.value_fn(inverter)
 
 
 class GatewaySystemSensorEntity(GatewaySensorBaseEntity):
@@ -439,6 +520,9 @@ class GatewaySensorEntity(GatewaySystemSensorEntity):
     def native_value(self):
         """Return the state of the sensor."""
         return self.coordinator.data.get(self.entity_description.key)
+
+
+
 
 
 class GatewaySensorInverterEntity(GatewaySystemSensorEntity):

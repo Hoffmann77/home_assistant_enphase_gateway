@@ -8,6 +8,30 @@ from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.components.sensor import SensorEntity
 
 from .coordinator import GatewayReaderUpdateCoordinator
+from .coordinator import GatewayCoordinator
+
+
+class GatewayCoordinatorEntity(CoordinatorEntity[GatewayCoordinator]):
+    """Coordinator entity."""
+
+    _attr_has_entity_name = True
+
+    def __init__(
+            self,
+            coordinator: GatewayCoordinator,
+            description: EntityDescription,
+    ) -> None:
+        """Initialize the entity."""
+        super().__init__(coordinator)
+        self.entity_description = description
+        self.gateway_serial_num = coordinator.gateway_reader.serial_number
+
+    @property
+    def data(self) -> dict:
+        """Return the gateway data."""
+        data = self.coordinator.data
+        return data
+
 
 
 class GatewayBaseEntity(CoordinatorEntity[GatewayReaderUpdateCoordinator]):

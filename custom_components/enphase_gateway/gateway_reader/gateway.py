@@ -8,6 +8,8 @@ from typing import Callable
 import xmltodict
 from httpx import Response
 
+from homeassistant.util import dt as dt_util
+
 from .const import AVAILABLE_PROPERTIES
 from .endpoint import GatewayEndpoint
 from .descriptors import (
@@ -345,6 +347,19 @@ class Envoy(BaseGateway):
         data = self.data.get(self._ENDPOINT + "/inverters")
         if data:
             return {item["serialNumber"]: item for item in data}
+
+        return None
+
+    @gateway_property(required_endpoint=f"{_ENDPOINT}/inverters")
+    def inverters(self):
+        """Single inverter production data."""
+        inverters = self.data.get(self._ENDPOINT + "/inverters")
+        if inverters:
+            def to_dt(value):
+                return dt_util.utc_from_timestamp(value["lastReportDate"])
+
+            inverters = map(to_dt, inverters)
+            return {inv["serialNumber"]: inv for inv in inverters}
 
         return None
 
