@@ -30,6 +30,8 @@ from homeassistant.const import (
 from .const import DOMAIN,  ICON, CONF_INVERTERS, CONF_ENCHARGE_ENTITIES
 from .entity import GatewaySensorBaseEntity, GatewayCoordinatorEntity
 from .coordinator import GatewayReaderUpdateCoordinator, GatewayCoordinator
+from .gateway_reader.models.ensemble import EnchargePower
+from .gateway_reader.models.ac_battery import ACBatteryStorage
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -189,7 +191,7 @@ GRID_SENSORS = (
 class ACBatterySensorEntityDescription(SensorEntityDescription):
     """Provide a description of an inverter sensor."""
 
-    value_fn: Callable[[dict], float | datetime | None]
+    value_fn: Callable[[ACBatteryStorage], int | float]
     exists_fn: Callable[[dict], bool] = lambda _: True
 
 
@@ -329,41 +331,54 @@ ENCHARGE_INVENTORY_SENSORS = (
 )
 
 
+@dataclass(frozen=True, kw_only=True)
+class EnchargePowerSensorEntityDescription(SensorEntityDescription):
+    """Provide a description of an inverter sensor."""
+
+    value_fn: Callable[[EnchargePower], int | float]
+    exists_fn: Callable[[dict], bool] = lambda _: True
+
+
 ENCHARGE_POWER_SENSORS = (
-    SensorEntityDescription(
+    EnchargePowerSensorEntityDescription(
         key="soc",
         name="SoC",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.BATTERY
+        device_class=SensorDeviceClass.BATTERY,
+        value_fn=attrgetter("soc"),
     ),
-    SensorEntityDescription(
+    EnchargePowerSensorEntityDescription(
         key="real_power_mw",
         name="Power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.POWER
+        device_class=SensorDeviceClass.POWER,
+        value_fn=lambda encharge: encharge.apparent_power_mw * 0.001,
     ),
-    SensorEntityDescription(
+    EnchargePowerSensorEntityDescription(
         key="apparent_power_mva",
         name="Apparent power",
         native_unit_of_measurement=UnitOfApparentPower.VOLT_AMPERE,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.APPARENT_POWER
+        device_class=SensorDeviceClass.APPARENT_POWER,
+        value_fn=lambda encharge: encharge.apparent_power_mva * 0.001,
     ),
-    SensorEntityDescription(
-        key="charge",
+    EnchargePowerSensorEntityDescription(
+        key="charging_power",
         name="Charging power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.POWER
+        device_class=SensorDeviceClass.POWER,
+        value_fn=lambda encharge: encharge.charging_power * 0.001,
     ),
-    SensorEntityDescription(
-        key="discharge",
+    EnchargePowerSensorEntityDescription(
+        key="discharging_power",
         name="Discharging power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.POWER
+        device_class=SensorDeviceClass.POWER,
+        value_fn=lambda encharge: encharge.discharging_power * 0.001,
     ),
 )
 
@@ -637,32 +652,18 @@ class EnchargeInventoryEntity(EnchargeEntity):
 
 
 class EnchargePowerEntity(EnchargeEntity):
-    """Ensemble power encharge data."""
+    """Encharge power entity."""
+
+    entity_description: EnchargePowerSensorEntityDescription
 
     @property
     def native_value(self) -> int | None:
         """Return the state of the sensor."""
-        storage = self.data.encharge_power.get(self._serial_number)
-        if storage:
-            if self.entity_description.key == "real_power_mw":
-                if (real_power := storage.get("real_power_mw")) is not None:
-                    return round(real_power * 0.001)
-
-            elif self.entity_description.key == "apparent_power_mva":
-                if (va := storage.get("apparent_power_mva")) is not None:
-                    return round(va * 0.001)
-
-            elif self.entity_description.key == "charge":
-                if (real_power := storage.get("real_power_mw")) is not None:
-                    real_power = round(real_power * 0.001)
-                    return (real_power * -1) if real_power < 0 else 0
-
-            elif self.entity_description.key == "discharge":
-                if (real_power := storage.get("real_power_mw")) is not None:
-                    real_power = round(real_power * 0.001)
-                    return real_power if real_power > 0 else 0
-
-            else:
-                return storage.get(self.entity_description.key)
+        encharge_power = self.data.encharge_power
+        assert encharge_power is not None
+        if encharge_power is not None:
+            return self.entity_description.value_fn(
+                encharge_power[self._serial_number]
+            )
 
         return None

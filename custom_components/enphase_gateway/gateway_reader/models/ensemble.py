@@ -1,84 +1,40 @@
-"""Experimental models."""
+"""Models for the Ensemble endpoints."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
 
 
-class BaseModel:
-    """Base date model."""
+@dataclass(slots=True)
+class EnchargePower:
+    """Model for the Encharge/IQ battery power."""
 
-    def __init__(self, data):
-        self.data = data
-
-
-class EnchargeInventory(BaseModel):
-    """Inventory."""
-
-    pass
-
-
-class EnsembleSubmod(BaseModel):
-    """Ensemble submod data."""
-
-    pass
-
-
-class EnsembleSecctrl:
-    """Model for the ensemble/secctrl endpoint."""
-
-    
-    
-    
-    
-    
-    
-    "shutdown": false,
-    "freq_bias_hz": 0.13899999856948853,
-    "voltage_bias_v": 1.6899999380111695,
-    "freq_bias_hz_q8": 223,
-    "voltage_bias_v_q5": 54,
-    "freq_bias_hz_phaseb": 0.0,
-    "voltage_bias_v_phaseb": 0.0,
-    "freq_bias_hz_q8_phaseb": 0,
-    "voltage_bias_v_q5_phaseb": 0,
-    "freq_bias_hz_phasec": 0.0,
-    "voltage_bias_v_phasec": 0.0,
-    "freq_bias_hz_q8_phasec": 0,
-    "voltage_bias_v_q5_phasec": 0,
-    "configured_backup_soc": 0,
-    "adjusted_backup_soc": 0,
-    "agg_soc": 30,
-    "Max_energy": 7000,
-    "ENC_agg_soc": 30,
-    "ENC_agg_soh": 98,
-    "ENC_agg_backup_energy": 0,
-    "ENC_agg_avail_energy": 2100,
-    "Enc_commissioned_capacity": 7000,
-    "Enc_max_available_capacity": 7000,
-    "ACB_agg_soc": 0,
-    "ACB_agg_energy": 0
-    
-    
+    apparent_power_mva: int
+    real_power_mw: int
+    soc: int
 
     @property
     def charging_power(self):
         """Return the charging power."""
-        if power := self.wNow is not None:
+        if power := self.real_power_mw is not None:
             return (power * -1) if power < 0 else 0
+
+        return None
 
     @property
     def discharging_power(self):
         """Return the discharging power."""
-        if power := self.wNow is not None:
+        if power := self.real_power_mw is not None:
             return power if power > 0 else 0
 
+        return None
+
     @classmethod
-    def from_response(cls, response):
-        """Instantiate class from response."""
+    def from_response(cls, response: dict[str, Any]) -> EnchargePower:
+        """Instantiate class from the response."""
         return cls(
-            percentFull=response["percentFull"],
-            whNow=response["whNow"],
-            wNow=response["wNow"],
-            state=response["state"],
+            apparent_power_mva=response["apparent_power_mva"],
+            real_power_mw=response["real_power_mw"],
+            soc=response["soc"],
         )
-    
-    
-    
-    

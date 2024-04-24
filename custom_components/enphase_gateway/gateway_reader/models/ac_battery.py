@@ -1,6 +1,9 @@
 """Model for the legacy Enphase AC Battery."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import Any
 
 # from ..descriptors import JsonDescriptor
 # from .common import BaseModel
@@ -10,7 +13,6 @@ from dataclasses import dataclass
 class ACBatteryStorage:
     """Model for the legacy Enphase AC Battery."""
 
-    # percentFull = JsonDescriptor("percentFull")
     percentFull = int
     whNow = int
     wNow = int
@@ -22,14 +24,18 @@ class ACBatteryStorage:
         if power := self.wNow is not None:
             return (power * -1) if power < 0 else 0
 
+        return None
+
     @property
     def discharging_power(self):
         """Return the discharging power."""
         if power := self.wNow is not None:
             return power if power > 0 else 0
 
+        return None
+
     @classmethod
-    def from_response(cls, response):
+    def from_response(cls, response: dict[str, Any]) -> ACBatteryStorage:
         """Instantiate class from response."""
         return cls(
             percentFull=response["percentFull"],

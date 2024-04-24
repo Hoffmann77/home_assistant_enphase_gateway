@@ -19,7 +19,8 @@ from .descriptors import (
     RegexDescriptor,
 )
 
-from .models.acb_storage import ACBatteryStorage
+from .models.ac_battery import ACBatteryStorage
+from .models.ensemble import EnchargePower
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -378,13 +379,16 @@ class EnvoyS(Envoy):
         return None
 
     @gateway_property("ivp/ensemble/power")
-    def encharge_power(self) -> dict | None:
-        """Ensemble power data."""
+    def encharge_power(self) -> EnchargePower | None:
+        """Encharge power data."""
         result = JsonDescriptor.resolve(
             "devices:", self.data.get("ivp/ensemble/power", {})
         )
         if result and isinstance(result, list):
-            return {device["serial_num"]: device for device in result}
+            return {
+                device["serial_num"]: EnchargePower.from_response(device)
+                for device in result
+            }
 
         return None
 
