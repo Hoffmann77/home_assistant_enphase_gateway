@@ -343,15 +343,6 @@ class Envoy(BaseGateway):
     lifetime_production = JsonDescriptor("wattHoursLifetime", _ENDPOINT)
 
     @gateway_property(required_endpoint=f"{_ENDPOINT}/inverters")
-    def inverters_production(self):
-        """Single inverter production data."""
-        data = self.data.get(self._ENDPOINT + "/inverters")
-        if data:
-            return {item["serialNumber"]: item for item in data}
-
-        return None
-
-    @gateway_property(required_endpoint=f"{_ENDPOINT}/inverters")
     def inverters(self):
         """Single inverter production data."""
         inverters = self.data.get(self._ENDPOINT + "/inverters")

@@ -387,7 +387,7 @@ async def async_setup_entry(
                 GatewaySensorEntity(coordinator, sensor_description)
             )
 
-    if (data := coordinator.data.inverters_production) and conf_inverters:
+    if (data := coordinator.data.inverters) and conf_inverters:
         if conf_inverters == "gateway_sensor":
             entities.extend(
                 InverterEntity(coordinator, description, inverter, False)
@@ -450,6 +450,11 @@ class GatewaySensorEntity(GatewayCoordinatorEntity, SensorEntity):
             sw_version=str(self.coordinator.gateway_reader.firmware_version),
             serial_number=self.gateway_serial_num,
         )
+
+    @property
+    def native_value(self):
+        """Return the state of the sensor."""
+        return self.coordinator.data.get(self.entity_description.key)
 
 
 class InverterEntity(GatewaySensorEntity):
@@ -524,117 +529,6 @@ class GatewaySystemSensorEntity(GatewaySensorBaseEntity):
         )
 
 
-class GatewaySensorEntity(GatewaySystemSensorEntity):
-    """Gateway sensor entity."""
-
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        return self.coordinator.data.get(self.entity_description.key)
-
-
-
-
-
-class GatewaySensorInverterEntity(GatewaySystemSensorEntity):
-    """Gateway sensor inverter entity."""
-
-    _attr_icon = ICON
-
-    def __init__(
-            self,
-            coordinator,
-            description,
-            serial_number: str,
-    ) -> None:
-        """Initialize Gateway inverter entity."""
-        super().__init__(coordinator, description)
-        self._serial_number = serial_number
-        self._attr_unique_id = serial_number
-
-    @property
-    def name(self):
-        """Return the entity name."""
-        return f"Inverter {self._serial_number}"
-        # return f"{self.entity_description.name} {self._serial_number}"
-
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        data = self.data.get("inverters_production")
-        if data is not None:
-            inv = data.get(self._serial_number)
-            return inv.get(self.entity_description.key) if inv else None
-
-        return None
-
-    @property
-    def extra_state_attributes(self):
-        """Return the state attributes."""
-        data = self.data.get("inverters_production")
-        if data is not None:
-            inv = data.get(self._serial_number)
-            if last_reported := inv.get("lastReportDate"):
-                dt = dt_util.utc_from_timestamp(last_reported)
-                return {"last_reported": dt}
-
-        return None
-
-
-class GatewayInverterEntity(GatewaySensorInverterEntity):
-    """Gateway inverter entity.
-
-    Add inverters as seperate devices.
-
-    """
-
-    @property
-    def name(self):
-        """Return the entity's name."""
-        # override the parent inverter class name
-        return super(GatewaySensorInverterEntity, self).name
-        # return self.entity_description.name
-
-    @property
-    def unique_id(self) -> str:
-        """Return the entity's unique_id."""
-        # TODO: improve unique ids
-        # Originally there was only one inverter sensor, so we don't want to
-        # break existing installations by changing the unique_id.
-        if self.entity_description.key == "lastReportWatts":
-            return self._serial_number
-        else:
-            return f"{self._serial_number}_{self.entity_description.key}"
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return the device_info of the device."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, str(self._serial_number))},
-            name=f"Inverter {self._serial_number}",
-            manufacturer="Enphase",
-            model="Inverter",
-            via_device=(DOMAIN, self.gateway_serial_num),
-        )
-
-    @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        _key = self.entity_description.key
-        if (data := self.data.get("inverters_production")) is not None:
-            value = data.get(self._serial_number, {}).get(_key)
-            if value is not None and _key == "lastReportDate":
-                return dt_util.utc_from_timestamp(value)
-            return value
-
-        return None
-
-    @property
-    def extra_state_attributes(self):
-        """Return the state attributes."""
-        return None
-
-
 class ACBatteryEntity(GatewaySensorEntity):
     """AC-Battery entity."""
 
@@ -644,7 +538,7 @@ class ACBatteryEntity(GatewaySensorEntity):
     def native_value(self):
         """Return the state of the sensor."""
         ac_battery = self.data.ac_battery
-        # assert ac_battery is not None
+        assert ac_battery is not None
         if ac_battery is None:
             return None
 
