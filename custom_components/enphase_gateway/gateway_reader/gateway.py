@@ -430,9 +430,12 @@ class EnvoyS(Envoy):
     #     return result if result else self._default
 
     @gateway_property(required_endpoint="production.json")
-    def acb_storage(self):
-        """AC battery storage data."""
-        # storage is installed if the 'percentFull' key exists.
+    def acb_storage(self) -> ACBatteryStorage | None:
+        """Return AC battery storage data.
+
+        An AC Battery storage is installed when the 'percentFull' key exists.
+
+        """
         data = JsonDescriptor.resolve(
             "storage[?(@.percentFull)]",
             self.data.get("production.json", {})

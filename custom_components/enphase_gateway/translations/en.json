@@ -50,7 +50,7 @@
   "selector": {
     "inverters_config": {
       "options": {
-        "gateway_sensor": "Add inverters as gateway sensor",
+        "gateway_sensor": "Add inverters as gateway sensors",
         "device": "Add inverters as dedicated devices",
         "disabled": "Disable inverters"
       }
