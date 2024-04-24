@@ -60,7 +60,10 @@ INVERTER_SENSORS = (
         name="Last reported",
         device_class=SensorDeviceClass.TIMESTAMP,
         entity_registry_enabled_default=False,
-        value_fn=lambda inverter: inverter.get("lastReportDate"),
+        # value_fn=lambda inverter: inverter.get("lastReportDate"),
+        value_fn=lambda inverter: dt_util.utc_from_timestamp(
+            inverter["lastReportDate"].last_report_date
+        ),
     ),
 )
 
@@ -515,6 +518,7 @@ class InverterEntity(GatewaySensorEntity):
             return None
 
         inverter = inverters.get(self._serial_number, {})
+        assert inverter["lastReportDate"]
         return self.entity_description.value_fn(inverter)
 
 
