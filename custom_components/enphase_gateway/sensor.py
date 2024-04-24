@@ -7,6 +7,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import datetime
+from operator import attrgetter
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
@@ -184,6 +185,14 @@ GRID_SENSORS = (
 )
 
 
+@dataclass(frozen=True, kw_only=True)
+class AcBatterySensorEntityDescription(SensorEntityDescription):
+    """Provide a description of an inverter sensor."""
+
+    value_fn: Callable[[dict], float | datetime | None]
+    exists_fn: Callable[[dict], bool] = lambda _: True
+
+
 ACB_STORAGE_SENSORS = (
     SensorEntityDescription(
         key="whNow",
@@ -191,7 +200,7 @@ ACB_STORAGE_SENSORS = (
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
-        access_fn=lambda model: model.whNow,
+        value_fn=attrgetter("whNow"),
     ),
     SensorEntityDescription(
         key="percentFull",
@@ -199,7 +208,7 @@ ACB_STORAGE_SENSORS = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.BATTERY,
-        access_fn=lambda model: model.percentFull,
+        value_fn=attrgetter("percentFull"),
     ),
     SensorEntityDescription(
         key="wNow",
@@ -207,7 +216,7 @@ ACB_STORAGE_SENSORS = (
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
-        access_fn=lambda model: model.wNow,
+        value_fn=attrgetter("wNow"),
     ),
     SensorEntityDescription(
         key="charging_power",
@@ -215,7 +224,7 @@ ACB_STORAGE_SENSORS = (
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
-        access_fn=lambda model: model.charging_power,
+        value_fn=attrgetter("charging_power"),
     ),
     SensorEntityDescription(
         key="discharging_power",
@@ -223,7 +232,7 @@ ACB_STORAGE_SENSORS = (
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
-        access_fn=lambda model: model.discharging_power,
+        value_fn=attrgetter("discharging_power"),
     ),
 )
 
@@ -626,31 +635,20 @@ class GatewayInverterEntity(GatewaySensorInverterEntity):
         return None
 
 
-class ACBatteryEntity(GatewaySystemSensorEntity):
-    """AC battery entity."""
+class ACBatteryEntity(GatewaySensorEntity):
+    """AC-Battery entity."""
+
+    entity_description: AcBatterySensorEntityDescription
 
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        if model := self.data.acb_storage is None:
+        ac_battery = self.data.ac_battery
+        # assert ac_battery is not None
+        if ac_battery is None:
             return None
 
-        return self.entity_description.access_fn(model)
-
-    # @property
-    # def native_value(self):
-    #     """Return the state of the sensor."""
-    #     storage = self.data.acb_storage
-    #     if self.entity_description.key in {"charge", "discharge"}:
-    #         if (power := storage.get("wNow")) is not None:
-    #             if self.entity_description.key == "charge":
-    #                 return (power * -1) if power < 0 else 0
-    #             elif self.entity_description.key == "discharge":
-    #                 return power if power > 0 else 0
-    #     else:
-    #         return storage.get(self.entity_description.key)
-
-    #     return None
+        return self.entity_description.value_fn(ac_battery)
 
 
 class EnchargeAggregatedEntity(GatewaySystemSensorEntity):
