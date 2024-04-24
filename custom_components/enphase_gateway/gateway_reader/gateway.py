@@ -590,13 +590,13 @@ class EnvoySMetered(EnvoyS):
             self.data.get("production.json", {})
         )
 
-    @gateway_property(required_endpoint="production.json", cache=0)
-    def seven_days_production(self):
-        """Return the daily energy production."""
-        return JsonDescriptor.resolve(
-            self._PRODUCTION_JSON.format("whLastSevenDays"),
-            self.data.get("production.json", {}),
-        )
+    # @gateway_property(required_endpoint="production.json", cache=0)
+    # def seven_days_production(self):
+    #     """Return the daily energy production."""
+    #     return JsonDescriptor.resolve(
+    #         self._PRODUCTION_JSON.format("whLastSevenDays"),
+    #         self.data.get("production.json", {}),
+    #     )
 
     @gateway_property(required_endpoint="ivp/meters/readings")
     def lifetime_production(self):
@@ -633,13 +633,13 @@ class EnvoySMetered(EnvoyS):
             self.data.get("production.json", {})
         )
 
-    @gateway_property(required_endpoint="production.json", cache=0)
-    def seven_days_consumption(self):
-        """Return the daily energy production."""
-        return JsonDescriptor.resolve(
-            self._TOTAL_CONSUMPTION_JSON + ".whLastSevenDays",
-            self.data.get("production.json", {}),
-        )
+    # @gateway_property(required_endpoint="production.json", cache=0)
+    # def seven_days_consumption(self):
+    #     """Return the daily energy production."""
+    #     return JsonDescriptor.resolve(
+    #         self._TOTAL_CONSUMPTION_JSON + ".whLastSevenDays",
+    #         self.data.get("production.json", {}),
+    #     )
 
     @gateway_property(required_endpoint="ivp/meters/readings")
     def lifetime_consumption(self):
@@ -687,10 +687,10 @@ class EnvoySMeteredCtDisabled(EnvoyS):
         "production.json",
     )
 
-    seven_days_consumption = JsonDescriptor(
-        _TOTAL_CONSUMPTION + ".whLastSevenDays",
-        "production.json",
-    )
+    # seven_days_consumption = JsonDescriptor(
+    #     _TOTAL_CONSUMPTION + ".whLastSevenDays",
+    #     "production.json",
+    # )
 
     lifetime_consumption = JsonDescriptor(
         _TOTAL_CONSUMPTION + ".whLifetime",
@@ -728,13 +728,13 @@ class EnvoySMeteredCtDisabled(EnvoyS):
             self.data.get("production.json", {})
         )
 
-    @gateway_property(required_endpoint="production.json")
-    def seven_days_production(self):
-        """Last seven days energy production."""
-        return JsonDescriptor.resolve(
-            self._PRODUCTION.format(self.prod_type) + ".whLastSevenDays",
-            self.data.get("production.json", {})
-        )
+    # @gateway_property(required_endpoint="production.json")
+    # def seven_days_production(self):
+    #     """Last seven days energy production."""
+    #     return JsonDescriptor.resolve(
+    #         self._PRODUCTION.format(self.prod_type) + ".whLastSevenDays",
+    #         self.data.get("production.json", {})
+    #     )
 
     @gateway_property(required_endpoint="production.json")
     def lifetime_production(self):
