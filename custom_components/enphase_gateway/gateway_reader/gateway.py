@@ -28,7 +28,6 @@ _LOGGER = logging.getLogger(__name__)
 
 def gateway_property(
         _func: Callable | None = None,
-        required_endpoint=None,
         **kwargs: dict,
 ) -> PropertyDescriptor:
     """Decorate the given method as gateway property.
@@ -50,7 +49,7 @@ def gateway_property(
         Property descriptor calling the method on attribute access.
 
     """
-    # required_endpoint = kwargs.pop("required_endpoint", None)
+    required_endpoint = kwargs.pop("required_endpoint", None)
     cache = kwargs.pop("cache", 0)
 
     def decorator(func):
@@ -366,7 +365,7 @@ class EnvoyS(Envoy):
 
     ensemble_power = JsonDescriptor("devices:", "ivp/ensemble/power")
 
-    @gateway_property("ivp/ensemble/inventory")
+    @gateway_property(required_endpoint="ivp/ensemble/inventory")
     def encharge_inventory(self) -> dict | None:
         """Ensemble Encharge storages."""
         result = JsonDescriptor.resolve(
@@ -378,7 +377,7 @@ class EnvoyS(Envoy):
 
         return None
 
-    @gateway_property("ivp/ensemble/power")
+    @gateway_property(required_endpoint="ivp/ensemble/power")
     def encharge_power(self) -> EnchargePower | None:
         """Encharge power data."""
         result = JsonDescriptor.resolve(
@@ -392,7 +391,7 @@ class EnvoyS(Envoy):
 
         return None
 
-    @gateway_property("production.json")
+    @gateway_property(required_endpoint="production.json")
     def ac_battery(self) -> ACBatteryStorage | None:
         """Return AC battery storage data."""
         # AC-Battery is installed when the 'percentFull' key exists.
