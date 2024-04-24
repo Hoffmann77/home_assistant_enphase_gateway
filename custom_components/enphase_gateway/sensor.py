@@ -186,15 +186,15 @@ GRID_SENSORS = (
 
 
 @dataclass(frozen=True, kw_only=True)
-class AcBatterySensorEntityDescription(SensorEntityDescription):
+class ACBatterySensorEntityDescription(SensorEntityDescription):
     """Provide a description of an inverter sensor."""
 
     value_fn: Callable[[dict], float | datetime | None]
     exists_fn: Callable[[dict], bool] = lambda _: True
 
 
-ACB_STORAGE_SENSORS = (
-    SensorEntityDescription(
+AC_BATTERY_SENSORS = (
+    ACBatterySensorEntityDescription(
         key="whNow",
         name="AC-Battery Capacity",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
@@ -202,7 +202,7 @@ ACB_STORAGE_SENSORS = (
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         value_fn=attrgetter("whNow"),
     ),
-    SensorEntityDescription(
+    ACBatterySensorEntityDescription(
         key="percentFull",
         name="AC-Battery Soc",
         native_unit_of_measurement=PERCENTAGE,
@@ -210,7 +210,7 @@ ACB_STORAGE_SENSORS = (
         device_class=SensorDeviceClass.BATTERY,
         value_fn=attrgetter("percentFull"),
     ),
-    SensorEntityDescription(
+    ACBatterySensorEntityDescription(
         key="wNow",
         name="AC-Battery power",
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -218,7 +218,7 @@ ACB_STORAGE_SENSORS = (
         device_class=SensorDeviceClass.POWER,
         value_fn=attrgetter("wNow"),
     ),
-    SensorEntityDescription(
+    ACBatterySensorEntityDescription(
         key="charging_power",
         name="AC-Battery charging power",
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -226,7 +226,7 @@ ACB_STORAGE_SENSORS = (
         device_class=SensorDeviceClass.POWER,
         value_fn=attrgetter("charging_power"),
     ),
-    SensorEntityDescription(
+    ACBatterySensorEntityDescription(
         key="discharging_power",
         name="AC-Battery discharging power",
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -638,7 +638,7 @@ class GatewayInverterEntity(GatewaySensorInverterEntity):
 class ACBatteryEntity(GatewaySensorEntity):
     """AC-Battery entity."""
 
-    entity_description: AcBatterySensorEntityDescription
+    entity_description: ACBatterySensorEntityDescription
 
     @property
     def native_value(self):
