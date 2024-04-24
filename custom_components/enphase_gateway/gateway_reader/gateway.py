@@ -370,83 +370,35 @@ class EnvoyS(Envoy):
 
     VERBOSE_NAME = "Envoy-S Standard"
 
-    # ensemble_inventory = JsonDescriptor("", "ivp/ensemble/inventory")
-
-    # ensemble_submod = JsonDescriptor("", "ivp/ensemble/submod")
-
     ensemble_secctrl = JsonDescriptor("", "ivp/ensemble/secctrl")
 
     ensemble_power = JsonDescriptor("devices:", "ivp/ensemble/power")
 
-    @gateway_property(required_endpoint="ivp/ensemble/inventory")
-    def encharge_inventory(self):
-        """Ensemble inventory data.
-
-        Only return encharge related data.
-
-        """
-        data = self.data.get("ivp/ensemble/inventory", {})
+    @gateway_property("ivp/ensemble/inventory")
+    def encharge_inventory(self) -> dict | None:
+        """Ensemble Encharge storages."""
         result = JsonDescriptor.resolve(
             "$.[?(@.type=='ENCHARGE')].devices",
-            data,
+            self.data.get("ivp/ensemble/inventory", {}),
         )
         if result:
             return {device["serial_num"]: device for device in result}
 
         return None
 
-    @gateway_property(required_endpoint="ivp/ensemble/power")
-    def encharge_power(self):
-        """Ensemble inventory data.
-
-        Only returns encharge related data.
-
-        """
-        data = self.data.get("ivp/ensemble/power", {})
-        result = JsonDescriptor.resolve("devices:", data)
+    @gateway_property("ivp/ensemble/power")
+    def encharge_power(self) -> dict | None:
+        """Ensemble power data."""
+        result = JsonDescriptor.resolve(
+            "devices:", self.data.get("ivp/ensemble/power", {})
+        )
         if result and isinstance(result, list):
             return {device["serial_num"]: device for device in result}
 
         return None
 
-    # @gateway_property(required_endpoint="ivp/ensemble/secctrl")
-    # def ensemble_secctrl(self):
-    #     """Ensemble secctrl data."""
-    #     data = self.data.get("ivp/ensemble/secctrl", {})
-    #     result = JsonDescriptor.resolve("", data)
-    #     if self.initial_update_finished is False:
-    #         if self.encharge_inventory is None:
-    #             return None
-
-    #     return result if result else None
-
-    # @gateway_property(required_endpoint="production.json")
-    # def ac_battery(self):
-    #     """AC battery data."""
-    #     data = self.data.get("production.json", {})
-    #     result = JsonDescriptor.resolve("storage[?(@.percentFull)]", data)
-    #     return result if result else None
-
-    # @gateway_property(required_endpoint="ensemble_submod")
-    # def ensemble_submod(self):
-    #     """Ensemble submod data."""
-    #     result = JsonDescriptor.resolve("ensemble_sbumod", self.data)
-    #     return result if result else self._default
-
-    # @gateway_property(required_endpoint="ensemble_power")
-    # def ensemble_power(self):
-    #     """Ensemble power data."""
-    #     result = JsonDescriptor.resolve("ensemble_power.devices:", self.data)
-    #     return result if result else self._default
-
-    # @gateway_property(required_endpoint="ensemble_secctrl")
-    # def ensemble_secctrl(self):
-    #     """Ensemble secctrl data."""
-    #     result = JsonDescriptor.resolve("ensemble_secctrl", self.data)
-    #     return result if result else self._default
-
-    @gateway_property(required_endpoint="production.json")
-    def acb_storage(self) -> ACBatteryStorage | None:
+    @gateway_property("production.json")
+    def ac_battery(self) -> ACBatteryStorage | None:
         """Return AC battery storage data."""
         # AC-Battery is installed when the 'percentFull' key exists.
         data = JsonDescriptor.resolve(
@@ -457,13 +409,6 @@ class EnvoyS(Envoy):
             return ACBatteryStorage.from_response(data)
 
         return None
-
-    @gateway_property
-    def battery_storage(self):
-        """Battery storage data."""
-        ensemble_storage = self.ensemble_inventory
-        acb_storage = self.acb_storage
-        return ensemble_storage | acb_storage
 
 
 class EnvoySMetered(EnvoyS):
