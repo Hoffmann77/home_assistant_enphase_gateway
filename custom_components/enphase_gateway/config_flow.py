@@ -56,6 +56,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Enphase Gateway."""
 
     VERSION = 2
+    MINOR_VERSION = 1
 
     def __init__(self):
         """Initialize an gateway flow."""
