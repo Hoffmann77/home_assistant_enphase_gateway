@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, TYPE_CHECKING
+from asyncio import sleep as asyncio_sleep
 
 import httpx
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
@@ -225,6 +226,10 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
                 raise ConfigEntryAuthFailed from err
 
             except httpx.HTTPError as err:
+                now = datetime.now(timezone.utc)
+                if _try == 0 and now.hour == 23 and now.minute == 0:
+                    asyncio_sleep(10)
+                    continue
                 raise UpdateFailed(
                     f"Error communicating with API: {err}"
                 ) from err
