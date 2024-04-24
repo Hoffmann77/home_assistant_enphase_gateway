@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from datetime import datetime
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
@@ -36,7 +38,7 @@ _LOGGER = logging.getLogger(__name__)
 class InverterSensorEntityDescription(SensorEntityDescription):
     """Provide a description of an inverter sensor."""
 
-    value_fn: Callable[[dict], float | None]
+    value_fn: Callable[[dict], float | datetime | None]
     exists_fn: Callable[[dict], bool] = lambda _: True
 
 

@@ -27,6 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def gateway_property(
         _func: Callable | None = None,
+        required_endpoint=None,
         **kwargs: dict,
 ) -> PropertyDescriptor:
     """Decorate the given method as gateway property.
@@ -48,7 +49,7 @@ def gateway_property(
         Property descriptor calling the method on attribute access.
 
     """
-    required_endpoint = kwargs.pop("required_endpoint", None)
+    # required_endpoint = kwargs.pop("required_endpoint", None)
     cache = kwargs.pop("cache", 0)
 
     def decorator(func):
@@ -446,11 +447,8 @@ class EnvoyS(Envoy):
 
     @gateway_property(required_endpoint="production.json")
     def acb_storage(self) -> ACBatteryStorage | None:
-        """Return AC battery storage data.
-
-        An AC Battery storage is installed when the 'percentFull' key exists.
-
-        """
+        """Return AC battery storage data."""
+        # AC-Battery is installed when the 'percentFull' key exists.
         data = JsonDescriptor.resolve(
             "storage[?(@.percentFull)]",
             self.data.get("production.json", {})
