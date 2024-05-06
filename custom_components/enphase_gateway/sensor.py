@@ -11,7 +11,7 @@ from operator import attrgetter
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import Entity, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 from homeassistant.components.sensor import (
@@ -35,6 +35,159 @@ from .gateway_reader.models.ac_battery import ACBatteryStorage
 
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, kw_only=True)
+class BaseSensorEntityDescription(SensorEntityDescription):
+    """Provide a description of an inverter sensor."""
+
+    value_fn: Callable[[dict], float | None]
+    exists_fn: Callable[[dict], bool] = lambda _: True
+
+
+PRODUCTION_SENSORS = (
+    BaseSensorEntityDescription(
+        key="production",
+        name="Current Power Production",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+        suggested_unit_of_measurement=UnitOfPower.WATT,
+        suggested_display_precision=0,
+        value_fn=lambda gateway: gateway.get("production"),
+        exists_fn=lambda gateway: bool(gateway.get("production")),
+    ),
+    BaseSensorEntityDescription(
+        key="daily_production",
+        name="Today's Energy Production",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_display_precision=0,
+        value_fn=lambda gateway: gateway.get("daily_production"),
+        exists_fn=lambda gateway: bool(gateway.get("daily_production")),
+    ),
+    BaseSensorEntityDescription(
+        key="seven_days_production",
+        name="Last Seven Days Energy Production",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_display_precision=0,
+        value_fn=lambda gateway: gateway.get("seven_days_production"),
+        exists_fn=lambda gateway: bool(gateway.get("seven_days_production")),
+    ),
+    BaseSensorEntityDescription(
+        key="lifetime_production",
+        name="Lifetime Energy Production",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_display_precision=0,
+        value_fn=lambda gateway: gateway.get("lifetime_production"),
+        exists_fn=lambda gateway: bool(gateway.get("lifetime_production")),
+    ),
+)
+
+
+CONSUMPTION_SENSORS = (
+    BaseSensorEntityDescription(
+        key="consumption",
+        name="Current Power Consumption",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+        suggested_unit_of_measurement=UnitOfPower.WATT,
+        suggested_display_precision=0,
+        value_fn=lambda gateway: gateway.get("consumption"),
+        exists_fn=lambda gateway: bool(gateway.get("consumption")),
+    ),
+    BaseSensorEntityDescription(
+        key="daily_consumption",
+        name="Today's Energy Consumption",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_display_precision=0,
+        value_fn=lambda gateway: gateway.get("daily_consumption"),
+        exists_fn=lambda gateway: bool(gateway.get("daily_consumption")),
+    ),
+    BaseSensorEntityDescription(
+        key="seven_days_consumption",
+        name="Last Seven Days Energy Consumption",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_display_precision=0,
+        value_fn=lambda gateway: gateway.get("seven_days_consumption"),
+        exists_fn=lambda gateway: bool(gateway.get("seven_days_consumption")),
+    ),
+    BaseSensorEntityDescription(
+        key="lifetime_consumption",
+        name="Lifetime Energy Consumption",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_display_precision=0,
+        value_fn=lambda gateway: gateway.get("lifetime_consumption"),
+        exists_fn=lambda gateway: bool(gateway.get("lifetime_consumption")),
+    ),
+)
+
+
+GRID_SENSORS = (
+    BaseSensorEntityDescription(
+        key="grid_import",
+        name="Grid import",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+        suggested_unit_of_measurement=UnitOfPower.WATT,
+        suggested_display_precision=0,
+        value_fn=lambda gateway: gateway.get("grid_import"),
+        exists_fn=lambda gateway: bool(gateway.get("grid_import")),
+    ),
+    BaseSensorEntityDescription(
+        key="grid_export",
+        name="Grid export",
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.POWER,
+        suggested_unit_of_measurement=UnitOfPower.WATT,
+        suggested_display_precision=0,
+        value_fn=lambda gateway: gateway.get("grid_export"),
+        exists_fn=lambda gateway: bool(gateway.get("grid_export")),
+    ),
+    BaseSensorEntityDescription(
+        key="grid_import_lifetime",
+        name="Lifetime grid import",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_display_precision=0,
+        value_fn=lambda gateway: gateway.get("grid_import_lifetime"),
+        exists_fn=lambda gateway: bool(gateway.get("grid_import_lifetime")),
+    ),
+    BaseSensorEntityDescription(
+        key="grid_export_lifetime",
+        name="Lifetime grid export",
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.ENERGY,
+        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        suggested_display_precision=0,
+        value_fn=lambda gateway: gateway.get("grid_export_lifetime"),
+        exists_fn=lambda gateway: bool(gateway.get("grid_export_lifetime")),
+    ),
+)
+
+
+BASE_SENSORS = PRODUCTION_SENSORS + CONSUMPTION_SENSORS + GRID_SENSORS
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -64,128 +217,6 @@ INVERTER_SENSORS = (
         value_fn=lambda inverter: dt_util.utc_from_timestamp(
             inverter["lastReportDate"].last_report_date
         ),
-    ),
-)
-
-
-PRODUCTION_SENSORS = (
-    SensorEntityDescription(
-        key="production",
-        name="Current Power Production",
-        native_unit_of_measurement=UnitOfPower.WATT,
-        state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.POWER,
-        suggested_unit_of_measurement=UnitOfPower.WATT,
-        suggested_display_precision=0,
-        # value_fn=lambda production: production.watts_now,
-    ),
-    SensorEntityDescription(
-        key="daily_production",
-        name="Today's Energy Production",
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        device_class=SensorDeviceClass.ENERGY,
-        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_display_precision=0,
-        # value_fn=lambda production: production.watt_hours_today,
-    ),
-    SensorEntityDescription(
-        key="seven_days_production",
-        name="Last Seven Days Energy Production",
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        device_class=SensorDeviceClass.ENERGY,
-        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_display_precision=0,
-    ),
-    SensorEntityDescription(
-        key="lifetime_production",
-        name="Lifetime Energy Production",
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        device_class=SensorDeviceClass.ENERGY,
-        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_display_precision=0,
-    ),
-)
-
-
-CONSUMPTION_SENSORS = (
-    SensorEntityDescription(
-        key="consumption",
-        name="Current Power Consumption",
-        native_unit_of_measurement=UnitOfPower.WATT,
-        state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.POWER,
-        suggested_unit_of_measurement=UnitOfPower.WATT,
-        suggested_display_precision=0,
-        # value_fn=lambda consumption: consumption.watts_now,
-    ),
-    SensorEntityDescription(
-        key="daily_consumption",
-        name="Today's Energy Consumption",
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        device_class=SensorDeviceClass.ENERGY,
-        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_display_precision=0,
-        # value_fn=lambda consumption: consumption.watt_hours_today,
-    ),
-    SensorEntityDescription(
-        key="seven_days_consumption",
-        name="Last Seven Days Energy Consumption",
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        device_class=SensorDeviceClass.ENERGY,
-        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_display_precision=0,
-    ),
-    SensorEntityDescription(
-        key="lifetime_consumption",
-        name="Lifetime Energy Consumption",
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        device_class=SensorDeviceClass.ENERGY,
-        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_display_precision=0,
-    ),
-)
-
-
-GRID_SENSORS = (
-    SensorEntityDescription(
-        key="grid_import",
-        name="Grid import",
-        native_unit_of_measurement=UnitOfPower.WATT,
-        state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.POWER,
-        suggested_unit_of_measurement=UnitOfPower.WATT,
-        suggested_display_precision=0,
-    ),
-    SensorEntityDescription(
-        key="grid_export",
-        name="Grid export",
-        native_unit_of_measurement=UnitOfPower.WATT,
-        state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.POWER,
-        suggested_unit_of_measurement=UnitOfPower.WATT,
-        suggested_display_precision=0,
-    ),
-    SensorEntityDescription(
-        key="grid_import_lifetime",
-        name="Lifetime grid import",
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        device_class=SensorDeviceClass.ENERGY,
-        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_display_precision=0,
-    ),
-    SensorEntityDescription(
-        key="grid_export_lifetime",
-        name="Lifetime grid export",
-        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        device_class=SensorDeviceClass.ENERGY,
-        suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
-        suggested_display_precision=0,
     ),
 )
 
@@ -396,14 +427,12 @@ async def async_setup_entry(
     options = config_entry.options
     conf_inverters = options.get(CONF_INVERTERS, False)
     conf_encharge_entity = options.get(CONF_ENCHARGE_ENTITIES, False)
-    base_sensors = PRODUCTION_SENSORS + CONSUMPTION_SENSORS  # + GRID_SENSORS
-    entities = []
 
-    for sensor_description in base_sensors:
-        if getattr(coordinator.data, sensor_description.key, None) is not None:
-            entities.append(
-                GatewaySensorEntity(coordinator, sensor_description)
-            )
+    entities: list[Entity] = [
+        GatewaySensorEntity(coordinator, description)
+        for description in BASE_SENSORS
+        if description.exists_fn(coordinator.data)
+    ]
 
     if (data := coordinator.data.inverters) and conf_inverters:
         if conf_inverters == "gateway_sensor":
@@ -472,7 +501,8 @@ class GatewaySensorEntity(GatewayCoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        return self.coordinator.data.get(self.entity_description.key)
+        gateway = self.coordinator.data
+        return self.entity_description.value_fn(gateway)
 
 
 class InverterEntity(GatewaySensorEntity):
@@ -546,6 +576,11 @@ class GatewaySystemSensorEntity(GatewaySensorBaseEntity):
             model=self.coordinator.gateway_reader.name,
             sw_version=str(self.coordinator.gateway_reader.firmware_version),
         )
+
+    @property
+    def native_value(self):
+        """Return the state of the sensor."""
+        return self.coordinator.data.get(self.entity_description.key)
 
 
 class ACBatteryEntity(GatewaySensorEntity):
