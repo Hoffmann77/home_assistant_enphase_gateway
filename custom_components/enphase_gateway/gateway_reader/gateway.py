@@ -352,13 +352,6 @@ class Envoy(BaseGateway):
         """Single inverter production data."""
         inverters = self.data.get("api/v1/production/inverters")
         if inverters:
-            # def to_dt(inverter):
-            #     inverter["lastReportDate"] = dt_util.utc_from_timestamp(
-            #         inverter["lastReportDate"]
-            #     )
-            #     return inverter
-
-            # inverters = map(to_dt, inverters)
             return {inv["serialNumber"]: inv for inv in inverters}
 
         return None
@@ -370,8 +363,6 @@ class EnvoyS(Envoy):
     VERBOSE_NAME = "Envoy-S Standard"
 
     ensemble_secctrl = JsonDescriptor("", "ivp/ensemble/secctrl")
-
-    # ensemble_power = JsonDescriptor("devices:", "ivp/ensemble/power")
 
     @gateway_property(required_endpoint="ivp/ensemble/inventory")
     def ensemble_inventory(self) -> EnsembleInventory | None:
@@ -385,6 +376,7 @@ class EnvoyS(Envoy):
                 device["serial_num"]: EnsembleInventory.from_result(device)
                 for device in result
             }
+
         return None
 
     @gateway_property(required_endpoint="ivp/ensemble/power")

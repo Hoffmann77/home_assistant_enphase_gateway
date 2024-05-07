@@ -167,8 +167,8 @@ async def test_with_7_6_175_firmware():
         3183793.885 - (1776768.769 - 3738205.282)
     )
     # battery data
-    assert gateway.encharge_inventory is None
-    assert gateway.encharge_power is None
+    assert gateway.ensemble_inventory is None
+    assert gateway.ensemble_power is None
     # inverters
     assert gateway.inverters["482243031579"] == {
         "serialNumber": "482243031579",
@@ -211,8 +211,8 @@ async def test_with_7_6_175_firmware_cts_disabled():
     # assert gateway.seven_days_consumption is None #HINT: disabled
     assert gateway.lifetime_consumption is None
     # battery data
-    assert gateway.encharge_inventory is None
-    assert gateway.encharge_power is None
+    assert gateway.ensemble_inventory is None
+    assert gateway.ensemble_power is None
     # inverters
     assert gateway.inverters["122107032918"] == {
         "serialNumber": "122107032918",

@@ -26,5 +26,4 @@ class GatewayCoordinatorEntity(CoordinatorEntity[GatewayCoordinator]):
     @property
     def data(self) -> dict:
         """Return the gateway data."""
-        data = self.coordinator.data
-        return data
+        return self.coordinator.data

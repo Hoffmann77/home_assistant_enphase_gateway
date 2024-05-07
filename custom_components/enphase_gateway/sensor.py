@@ -225,7 +225,7 @@ INVERTER_SENSORS = (
         entity_registry_enabled_default=False,
         # value_fn=lambda inverter: inverter.get("lastReportDate"),
         value_fn=lambda inverter: dt_util.utc_from_timestamp(
-            inverter["lastReportDate"].last_report_date
+            inverter["lastReportDate"]
         ),
     ),
 )

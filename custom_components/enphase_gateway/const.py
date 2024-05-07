@@ -18,7 +18,7 @@ ICON = "mdi:flash"
 
 COORDINATOR = "coordinator"
 
-NAME = "name"
+# NAME = "name"
 
 DATA_UPDATE_INTERVAL = {
     "slow": 120,
@@ -37,7 +37,7 @@ CONFIG_FLOW_USER_ERROR = (
 AVAILABLE_PROPERTIES = {
     "production", "daily_production", "seven_days_production",
     "lifetime_production", "consumption", "daily_consumption",
-    "seven_days_consumption", "lifetime_consumption", "inverters_production",
+    "seven_days_consumption", "lifetime_consumption", "inverters",
     "grid_status", "ensemble_power", "ensemble_inventory", "ensemble_submod",
     "ensemble_secctrl",
 }

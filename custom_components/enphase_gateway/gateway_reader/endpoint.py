@@ -12,16 +12,12 @@ class GatewayEndpoint:
             cache: int = 0,
             fetch: bool = True
     ) -> None:
-        """Initialize instance of GatewayEndpoint."""
+        """Initialize instance."""
         self.path = endpoint_path
         self.cache = cache
         self.fetch = fetch
         self._last_fetch = None
         self._base_url = "{}://{}/{}"
-
-    def __repr__(self):
-        """Magic method. Use path for representation."""
-        return self.path
 
     @property
     def update_required(self) -> bool:
@@ -34,6 +30,10 @@ class GatewayEndpoint:
             return True
 
         return False
+
+    def __repr__(self):
+        """Magic method."""
+        return self.path
 
     def get_url(self, protocol, host):
         """Return formatted url."""

@@ -60,6 +60,7 @@ class GatewayReader:
         """Return the verbose name of the gateway."""
         if self.gateway:
             return self.gateway.VERBOSE_NAME
+
         return "Enphase Gateway"
 
     @property
