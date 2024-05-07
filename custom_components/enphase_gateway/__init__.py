@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.httpx_client import get_async_client
 
 from .gateway_reader import GatewayReader
-from .coordinator import GatewayReaderUpdateCoordinator
+from .coordinator import GatewayCoordinator
 from .const import (
     DOMAIN, PLATFORMS, CONF_ENCHARGE_ENTITIES, CONF_INVERTERS
 )
@@ -23,7 +23,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Enphase Gateway from a config entry."""
     host = entry.data[CONF_HOST]
     reader = GatewayReader(host, get_async_client(hass, verify_ssl=False))
-    coordinator = GatewayReaderUpdateCoordinator(hass, reader, entry)
+    coordinator = GatewayCoordinator(hass, reader, entry)
 
     await coordinator.async_config_entry_first_refresh()
 
@@ -58,7 +58,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload:
         hass.data[DOMAIN].pop(entry.entry_id)
-        await GatewayReaderUpdateCoordinator.async_remove_store(hass, entry)
+        await GatewayCoordinator.async_remove_store(hass, entry)
     return unload
 
 

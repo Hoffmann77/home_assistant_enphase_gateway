@@ -24,7 +24,7 @@ DATA_UPDATE_INTERVAL = {
     "slow": 120,
     "moderate": 60,
     "fast": 30,
-    "extra_fast": 15,
+    "super_fast": 15,
 }
 
 CONFIG_FLOW_USER_ERROR = (
@@ -38,8 +38,8 @@ AVAILABLE_PROPERTIES = {
     "production", "daily_production", "seven_days_production",
     "lifetime_production", "consumption", "daily_consumption",
     "seven_days_consumption", "lifetime_consumption", "inverters_production",
-    "grid_status", "ensemble_power", "ensemble_submod", "ensemble_secctrl",
-    "battery_storage", "encharge_inventory", "encharge_power"
+    "grid_status", "ensemble_power", "ensemble_inventory", "ensemble_submod",
+    "ensemble_secctrl",
 }
 
 ALLOWED_ENDPOINTS = [

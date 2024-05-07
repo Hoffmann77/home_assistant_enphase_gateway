@@ -135,10 +135,40 @@ class JsonDescriptor(BaseDescriptor):
             result = result[0]
 
 
+class ModelDescriptor(BaseDescriptor):
+    
+    def __init__(
+            self,
+            model_cls,
+            jsonpath_expr: str,
+            required_endpoint: str | None = None,
+            cache: int = 0,
+    ) -> None:
+        super().__init__(required_endpoint, cache)
+        self.model_cls = model_cls
+        self.jsonpath_expr = jsonpath_expr
+        
+    def __get__(self, obj, objtype=None):
+        """Magic method. Resolve the jasonpath expression."""
+        if self._required_endpoint:
+            data = obj.data.get(self._required_endpoint, {})
+        else:
+            data = obj.data or {}
+
+        return self.resolve(self.jsonpath_expr, data)
+    
+    def resolve(cls, jsonpath_expr, model_cls, data):
+        
+        result = JsonDescriptor.resolve(jsonpath_expr, data)
+        if result is not None:
+            return model_cls.from_result(result)
+        
+
+
 class RegexDescriptor(BaseDescriptor):
     """Regex gateway property descriptor."""
 
-    def __init__(self, required_endpoint, regex, cache: int = 0):
+    def __init__(self, regex, required_endpoint, cache: int = 0):
         super().__init__(required_endpoint, cache)
         self._regex = regex
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime
 from operator import attrgetter
 
@@ -25,13 +25,18 @@ from homeassistant.const import (
     UnitOfApparentPower,
     UnitOfEnergy,
     UnitOfPower,
+    UnitOfTemperature,
 )
 
-from .const import DOMAIN,  ICON, CONF_INVERTERS, CONF_ENCHARGE_ENTITIES
-from .entity import GatewaySensorBaseEntity, GatewayCoordinatorEntity
-from .coordinator import GatewayReaderUpdateCoordinator, GatewayCoordinator
-from .gateway_reader.models.ensemble import EnchargePower
-from .gateway_reader.models.ac_battery import ACBatteryStorage
+from .const import DOMAIN, CONF_INVERTERS, CONF_ENCHARGE_ENTITIES
+from .entity import GatewayCoordinatorEntity
+from .coordinator import GatewayCoordinator
+from .gateway_reader.gateway import BaseGateway
+from .gateway_reader.models import (
+    EnchargePower,
+    EnsembleInventory,
+    ACBatteryStorage,
+)
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -46,15 +51,15 @@ def check(val):
 
 
 @dataclass(frozen=True, kw_only=True)
-class BaseSensorEntityDescription(SensorEntityDescription):
+class GatewaySensorEntityDescription(SensorEntityDescription):
     """Provide a description of an inverter sensor."""
 
-    value_fn: Callable[[dict], float | None]
-    exists_fn: Callable[[dict], bool] = lambda _: True
+    value_fn: Callable[[BaseGateway], float | None]
+    exists_fn: Callable[[BaseGateway], bool] = lambda _: True
 
 
 PRODUCTION_SENSORS = (
-    BaseSensorEntityDescription(
+    GatewaySensorEntityDescription(
         key="production",
         name="Current Power Production",
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -62,10 +67,10 @@ PRODUCTION_SENSORS = (
         device_class=SensorDeviceClass.POWER,
         suggested_unit_of_measurement=UnitOfPower.WATT,
         suggested_display_precision=0,
-        value_fn=lambda gateway: gateway.get("production"),
+        value_fn=lambda gateway: gateway.production,
         exists_fn=lambda gateway: check(gateway.production),
     ),
-    BaseSensorEntityDescription(
+    GatewaySensorEntityDescription(
         key="daily_production",
         name="Today's Energy Production",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
@@ -73,20 +78,20 @@ PRODUCTION_SENSORS = (
         device_class=SensorDeviceClass.ENERGY,
         suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_display_precision=0,
-        value_fn=lambda gateway: gateway.get("daily_production"),
+        value_fn=lambda gateway: gateway.daily_production,
         exists_fn=lambda gateway: check(gateway.daily_production),
     ),
-    BaseSensorEntityDescription(
+    GatewaySensorEntityDescription(
         key="seven_days_production",
         name="Last Seven Days Energy Production",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_display_precision=0,
-        value_fn=lambda gateway: gateway.get("seven_days_production"),
+        value_fn=lambda gateway: gateway.seven_days_production,
         exists_fn=lambda gateway: check(gateway.seven_days_production),
     ),
-    BaseSensorEntityDescription(
+    GatewaySensorEntityDescription(
         key="lifetime_production",
         name="Lifetime Energy Production",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
@@ -94,14 +99,14 @@ PRODUCTION_SENSORS = (
         device_class=SensorDeviceClass.ENERGY,
         suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_display_precision=0,
-        value_fn=lambda gateway: gateway.get("lifetime_production"),
+        value_fn=lambda gateway: gateway.lifetime_production,
         exists_fn=lambda gateway: check(gateway.lifetime_production),
     ),
 )
 
 
 CONSUMPTION_SENSORS = (
-    BaseSensorEntityDescription(
+    GatewaySensorEntityDescription(
         key="consumption",
         name="Current Power Consumption",
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -109,10 +114,10 @@ CONSUMPTION_SENSORS = (
         device_class=SensorDeviceClass.POWER,
         suggested_unit_of_measurement=UnitOfPower.WATT,
         suggested_display_precision=0,
-        value_fn=lambda gateway: gateway.get("consumption"),
+        value_fn=lambda gateway: gateway.consumption,
         exists_fn=lambda gateway: check(gateway.consumption),
     ),
-    BaseSensorEntityDescription(
+    GatewaySensorEntityDescription(
         key="daily_consumption",
         name="Today's Energy Consumption",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
@@ -120,20 +125,20 @@ CONSUMPTION_SENSORS = (
         device_class=SensorDeviceClass.ENERGY,
         suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_display_precision=0,
-        value_fn=lambda gateway: gateway.get("daily_consumption"),
+        value_fn=lambda gateway: gateway.daily_consumption,
         exists_fn=lambda gateway: check(gateway.daily_consumption),
     ),
-    BaseSensorEntityDescription(
+    GatewaySensorEntityDescription(
         key="seven_days_consumption",
         name="Last Seven Days Energy Consumption",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_display_precision=0,
-        value_fn=lambda gateway: gateway.get("seven_days_consumption"),
+        value_fn=lambda gateway: gateway.seven_days_consumption,
         exists_fn=lambda gateway: check(gateway.seven_days_consumption),
     ),
-    BaseSensorEntityDescription(
+    GatewaySensorEntityDescription(
         key="lifetime_consumption",
         name="Lifetime Energy Consumption",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
@@ -141,14 +146,14 @@ CONSUMPTION_SENSORS = (
         device_class=SensorDeviceClass.ENERGY,
         suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_display_precision=0,
-        value_fn=lambda gateway: gateway.get("lifetime_consumption"),
+        value_fn=lambda gateway: gateway.lifetime_consumption,
         exists_fn=lambda gateway: check(gateway.lifetime_consumption),
     ),
 )
 
 
 GRID_SENSORS = (
-    BaseSensorEntityDescription(
+    GatewaySensorEntityDescription(
         key="grid_import",
         name="Grid import",
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -156,10 +161,10 @@ GRID_SENSORS = (
         device_class=SensorDeviceClass.POWER,
         suggested_unit_of_measurement=UnitOfPower.WATT,
         suggested_display_precision=0,
-        value_fn=lambda gateway: gateway.get("grid_import"),
+        value_fn=lambda gateway: gateway.grid_import,
         exists_fn=lambda gateway: check(gateway.grid_import),
     ),
-    BaseSensorEntityDescription(
+    GatewaySensorEntityDescription(
         key="grid_export",
         name="Grid export",
         native_unit_of_measurement=UnitOfPower.WATT,
@@ -167,10 +172,10 @@ GRID_SENSORS = (
         device_class=SensorDeviceClass.POWER,
         suggested_unit_of_measurement=UnitOfPower.WATT,
         suggested_display_precision=0,
-        value_fn=lambda gateway: gateway.get("grid_export"),
+        value_fn=lambda gateway: gateway.grid_export,
         exists_fn=lambda gateway: check(gateway.grid_export),
     ),
-    BaseSensorEntityDescription(
+    GatewaySensorEntityDescription(
         key="grid_import_lifetime",
         name="Lifetime grid import",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
@@ -178,10 +183,10 @@ GRID_SENSORS = (
         device_class=SensorDeviceClass.ENERGY,
         suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_display_precision=0,
-        value_fn=lambda gateway: gateway.get("grid_import_lifetime"),
+        value_fn=lambda gateway: gateway.grid_import_lifetime,
         exists_fn=lambda gateway: check(gateway.grid_import_lifetime),
     ),
-    BaseSensorEntityDescription(
+    GatewaySensorEntityDescription(
         key="grid_export_lifetime",
         name="Lifetime grid export",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
@@ -189,13 +194,10 @@ GRID_SENSORS = (
         device_class=SensorDeviceClass.ENERGY,
         suggested_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         suggested_display_precision=0,
-        value_fn=lambda gateway: gateway.get("grid_export_lifetime"),
+        value_fn=lambda gateway: gateway.grid_export_lifetime,
         exists_fn=lambda gateway: check(gateway.grid_export_lifetime),
     ),
 )
-
-
-BASE_SENSORS = PRODUCTION_SENSORS + CONSUMPTION_SENSORS + GRID_SENSORS
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -231,133 +233,138 @@ INVERTER_SENSORS = (
 
 @dataclass(frozen=True, kw_only=True)
 class ACBatterySensorEntityDescription(SensorEntityDescription):
-    """Provide a description of an inverter sensor."""
+    """Provide a description for the AC-Battery sensors."""
 
     value_fn: Callable[[ACBatteryStorage], int | float]
-    exists_fn: Callable[[dict], bool] = lambda _: True
+    exists_fn: Callable[[ACBatteryStorage], bool] = lambda _: True
 
 
 AC_BATTERY_SENSORS = (
     ACBatterySensorEntityDescription(
-        key="whNow",
+        key="acb_whNow",
         name="AC-Battery Capacity",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         value_fn=attrgetter("whNow"),
-        exists_fn=lambda model: check(model.whNow),
+        exists_fn=lambda model: model.check("whNow"),
     ),
     ACBatterySensorEntityDescription(
-        key="percentFull",
+        key="acb_percentFull",
         name="AC-Battery Soc",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.BATTERY,
         value_fn=attrgetter("percentFull"),
-        exists_fn=lambda model: check(model.percentFull),
+        exists_fn=lambda model: model.check("percentFull"),
     ),
     ACBatterySensorEntityDescription(
-        key="wNow",
+        key="acb_wNow",
         name="AC-Battery power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
         value_fn=attrgetter("wNow"),
-        exists_fn=lambda model: check(model.wNow),
+        exists_fn=lambda model: model.check("wNow"),
     ),
     ACBatterySensorEntityDescription(
-        key="charging_power",
+        key="acb_charging_power",
         name="AC-Battery charging power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
         value_fn=attrgetter("charging_power"),
-        exists_fn=lambda model: check(model.charging_power),
+        exists_fn=lambda model: model.check("charging_power"),
     ),
     ACBatterySensorEntityDescription(
-        key="discharging_power",
+        key="acb_discharging_power",
         name="AC-Battery discharging power",
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
         value_fn=attrgetter("discharging_power"),
-        exists_fn=lambda model: check(model.discharging_power),
+        exists_fn=lambda model: model.check("discharging_power"),
     ),
 )
 
 
-ENCHARGE_AGG_SENSORS = (
-    SensorEntityDescription(
+@dataclass(frozen=True, kw_only=True)
+class EnsembleSecctrlEntityDescription(SensorEntityDescription):
+    """Provide a description of an ensemble power sensor."""
+
+    value_fn: Callable[[dict], int | float | None]
+    exists_fn: Callable[[dict], bool] = lambda _: True
+
+
+ENSEMBLE_SECCTRL_SENSORS = (
+    EnsembleSecctrlEntityDescription(
         key="Enc_max_available_capacity",
         name="ENCHARGE capacity",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.ENERGY_STORAGE
+        device_class=SensorDeviceClass.ENERGY_STORAGE,
+        value_fn=lambda data: data.get("Enc_max_available_capacity"),
+        exists_fn=lambda data: check(data.get("Enc_max_available_capacity")),
     ),
-    SensorEntityDescription(
+    EnsembleSecctrlEntityDescription(
         key="ENC_agg_avail_energy",
         name="ENCHARGE energy availiable",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.ENERGY_STORAGE
+        device_class=SensorDeviceClass.ENERGY_STORAGE,
+        value_fn=lambda data: data.get("ENC_agg_avail_energy"),
+        exists_fn=lambda data: check(data.get("ENC_agg_avail_energy")),
     ),
-    SensorEntityDescription(
+    EnsembleSecctrlEntityDescription(
         key="ENC_agg_backup_energy",
         name="ENCHARGE backup capacity",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.ENERGY_STORAGE
+        device_class=SensorDeviceClass.ENERGY_STORAGE,
+        value_fn=lambda data: data.get("ENC_agg_backup_energy"),
+        exists_fn=lambda data: check(data.get("ENC_agg_backup_energy")),
     ),
-    SensorEntityDescription(
+    EnsembleSecctrlEntityDescription(
         key="ENC_agg_soc",
         name="ENCHARGE SoC",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
-        device_class=SensorDeviceClass.BATTERY
+        device_class=SensorDeviceClass.BATTERY,
+        value_fn=lambda data: data.get("ENC_agg_soc"),
+        exists_fn=lambda data: check(data.get("ENC_agg_soc")),
     ),
-    SensorEntityDescription(
+    EnsembleSecctrlEntityDescription(
         key="ENC_agg_soh",
         name="ENCHARGE SoH",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda data: data.get("ENC_agg_soh"),
+        exists_fn=lambda data: check(data.get("ENC_agg_soh")),
     ),
 )
 
 
-# ENCHARGE_AGG_POWER_SENSORS = (
-#     SensorEntityDescription(
-#         key="real_power_mw",
-#         name="ENCHARGE power",
-#         native_unit_of_measurement=UnitOfPower.WATT,
-#         state_class=SensorStateClass.MEASUREMENT,
-#         device_class=SensorDeviceClass.POWER
-#     ),
-#     SensorEntityDescription(
-#         key="apparent_power_mva",
-#         name="ENCHARGE apparent power",
-#         native_unit_of_measurement=UnitOfApparentPower.VOLT_AMPERE,
-#         state_class=SensorStateClass.MEASUREMENT,
-#         device_class=SensorDeviceClass.APPARENT_POWER
-#     ),
-#     SensorEntityDescription(
-#         key="charge",
-#         name="ENCHARGE charging power",
-#         native_unit_of_measurement=UnitOfPower.WATT,
-#         state_class=SensorStateClass.MEASUREMENT,
-#         device_class=SensorDeviceClass.POWER
-#     ),
-#     SensorEntityDescription(
-#         key="discharge",
-#         name="ENCHARGE discharging power",
-#         native_unit_of_measurement=UnitOfPower.WATT,
-#         state_class=SensorStateClass.MEASUREMENT,
-#         device_class=SensorDeviceClass.POWER
-#     ),
-# )
+@dataclass(frozen=True, kw_only=True)
+class EnsembleInventorySensorEntityDescription(SensorEntityDescription):
+    """Provide a description of an ensemble power sensor."""
+
+    value_fn: Callable[[EnsembleInventory], int | float]
+    exists_fn: Callable[[EnsembleInventory], bool] = lambda _: True
 
 
-ENCHARGE_INVENTORY_SENSORS = (
-    SensorEntityDescription(
+ENSEMBLE_INVENTORY_SENSORS = (
+    EnsembleInventorySensorEntityDescription(
+        key="temperature",
+        name="Temperature",
+        native_unit_of_measurement=UnitOfTemperature.CELCIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+        value_fn=lambda model: model.temperature,
+        exists_fn=lambda model: model.check("temperature"),
+    ),
+    EnsembleInventorySensorEntityDescription(
         key="encharge_capacity",
         name="Capacity",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
@@ -365,8 +372,10 @@ ENCHARGE_INVENTORY_SENSORS = (
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         suggested_display_precision=2,
+        value_fn=lambda model: model.encharge_capacity,
+        exists_fn=lambda model: model.check("encharge_capacity"),
     ),
-    SensorEntityDescription(
+    EnsembleInventorySensorEntityDescription(
         key="calculated_capacity",
         name="Calculated energy availiable",
         native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
@@ -374,16 +383,18 @@ ENCHARGE_INVENTORY_SENSORS = (
         device_class=SensorDeviceClass.ENERGY_STORAGE,
         suggested_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         suggested_display_precision=2,
+        value_fn=lambda model: model.calculated_capacity,
+        exists_fn=lambda model: model.check("calculated_capacity"),
     )
 )
 
 
 @dataclass(frozen=True, kw_only=True)
 class EnsemblePowerSensorEntityDescription(SensorEntityDescription):
-    """Provide a description of an ensemble power sensor."""
+    """Provide a description for an ensemble power sensor."""
 
     value_fn: Callable[[EnchargePower], int | float]
-    exists_fn: Callable[[dict], bool] = lambda _: True
+    exists_fn: Callable[[EnchargePower], bool] = lambda _: True
 
 
 ENSEMBLE_POWER_SENSORS = (
@@ -393,7 +404,8 @@ ENSEMBLE_POWER_SENSORS = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.BATTERY,
-        value_fn=lambda device: device.soc,
+        value_fn=lambda model: model.soc,
+        exists_fn=lambda model: model.check("soc"),
     ),
     EnsemblePowerSensorEntityDescription(
         key="apparent_power_mva",
@@ -401,7 +413,8 @@ ENSEMBLE_POWER_SENSORS = (
         native_unit_of_measurement=UnitOfApparentPower.VOLT_AMPERE,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.APPARENT_POWER,
-        value_fn=lambda device: device.apparent_power_mva * 0.001,
+        value_fn=lambda model: model.apparent_power_mva * 0.001,
+        exists_fn=lambda model: model.check("apparent_power_mva"),
     ),
     EnsemblePowerSensorEntityDescription(
         key="real_power_mw",
@@ -409,7 +422,8 @@ ENSEMBLE_POWER_SENSORS = (
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
-        value_fn=lambda device: device.real_power_mw * 0.001,
+        value_fn=lambda model: model.real_power_mw * 0.001,
+        exists_fn=lambda model: model.check("real_power_mw"),
     ),
     EnsemblePowerSensorEntityDescription(
         key="charging_power_mw",
@@ -417,7 +431,8 @@ ENSEMBLE_POWER_SENSORS = (
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
-        value_fn=lambda device: device.charging_power * 0.001,
+        value_fn=lambda model: model.charging_power * 0.001,
+        exists_fn=lambda model: model.check("charging_power"),
     ),
     EnsemblePowerSensorEntityDescription(
         key="discharging_power_mw",
@@ -425,7 +440,8 @@ ENSEMBLE_POWER_SENSORS = (
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
-        value_fn=lambda device: device.discharging_power * 0.001,
+        value_fn=lambda model: model.discharging_power * 0.001,
+        exists_fn=lambda model: model.check("discharging_power"),
     ),
 )
 
@@ -437,7 +453,8 @@ ENSEMBLE_AGG_POWER_SENSORS = (
         native_unit_of_measurement=UnitOfApparentPower.VOLT_AMPERE,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.APPARENT_POWER,
-        value_fn=lambda devices: devices.apparent_power_mva_agg * 0.001,
+        value_fn=lambda model: model.apparent_power_mva_agg * 0.001,
+        exists_fn=lambda model: model.check("apparent_power_mva_agg"),
     ),
     EnsemblePowerSensorEntityDescription(
         key="real_power_mw_agg",
@@ -445,7 +462,8 @@ ENSEMBLE_AGG_POWER_SENSORS = (
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
-        value_fn=lambda devices: devices.real_power_mw_agg * 0.001,
+        value_fn=lambda model: model.real_power_mw_agg * 0.001,
+        exists_fn=lambda model: model.check("real_power_mw_agg"),
     ),
     EnsemblePowerSensorEntityDescription(
         key="charging_power_mw_agg",
@@ -453,7 +471,8 @@ ENSEMBLE_AGG_POWER_SENSORS = (
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
-        value_fn=lambda devices: devices.charging_power_mw_agg * 0.001,
+        value_fn=lambda model: model.charging_power_mw_agg * 0.001,
+        exists_fn=lambda model: model.check("charging_power_mw_agg"),
     ),
     EnsemblePowerSensorEntityDescription(
         key="discharging_power_mw_agg",
@@ -461,7 +480,8 @@ ENSEMBLE_AGG_POWER_SENSORS = (
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         device_class=SensorDeviceClass.POWER,
-        value_fn=lambda devices: devices.discharging_power_mw_agg * 0.001,
+        value_fn=lambda model: model.discharging_power_mw_agg * 0.001,
+        exists_fn=lambda model: model.check("discharging_power_mw_agg"),
     ),
 )
 
@@ -477,10 +497,12 @@ async def async_setup_entry(
     conf_inverters = options.get(CONF_INVERTERS, False)
     conf_encharge_entity = options.get(CONF_ENCHARGE_ENTITIES, False)
 
-    # Add the base sensors
+    GATEWAY_SENSORS = PRODUCTION_SENSORS + CONSUMPTION_SENSORS + GRID_SENSORS
+
+    # Add the base gateway sensors
     entities: list[Entity] = [
         GatewaySensorEntity(coordinator, description)
-        for description in BASE_SENSORS
+        for description in GATEWAY_SENSORS
         if description.exists_fn(coordinator.data)
     ]
 
@@ -499,49 +521,52 @@ async def async_setup_entry(
                 for inverter in data
             )
 
+    # Add the AC-Battery sensors
+    if data := coordinator.data.ac_battery:
+        entities.extend(
+            ACBatteryEntity(coordinator, description)
+            for description in AC_BATTERY_SENSORS
+            if description.exists_fn(data)
+        )
+
+    # Add the ensemble secctrl sensors
+    if data := coordinator.data.ensemble_secctrl:
+        entities.extend(
+            EnsembleSecctrlEntity(coordinator, description)
+            for description in ENSEMBLE_SECCTRL_SENSORS
+            if description.exists_fn(data)
+        )
+
     # Add the ensemble aggregated power sensors
-    if coordinator.data.ensemble_power:
+    if data := coordinator.data.ensemble_power:
         entities.extend(
             EnsembleAggregatedPowerEntity(coordinator, description)
             for description in ENSEMBLE_AGG_POWER_SENSORS
-            if description.exists_fn(coordinator.data)
+            if description.exists_fn(data)
         )
+
+    # Enphase storage sensors --------------------------------------------->
 
     # Add the ensemble power sensors
-    if coordinator.data.ensemble_power and conf_encharge_entity:
+    if (data := coordinator.data.ensemble_power) and conf_encharge_entity:
         entities.extend(
-            EnsemblePowerEntity(coordinator, description)
+            EnsemblePowerEntity(coordinator, description, serial_num)
             for description in ENSEMBLE_POWER_SENSORS
-            if description.exists_fn(coordinator.data)
+            for serial_num in data
+            if description.exists_fn(data[serial_num])
         )
 
-    if coordinator.data.ensemble_secctrl:
+    # Add the ensemble inventory sensors
+    if (data := coordinator.data.ensemble_inventory) and conf_encharge_entity:
         entities.extend(
-            EnchargeAggregatedEntity(coordinator, description)
-            for description in ENCHARGE_AGG_SENSORS
+            EnsembleInventoryEntity(coordinator, description, serial_num)
+            for description in ENSEMBLE_INVENTORY_SENSORS
+            for serial_num in data
+            if description.exists_fn(data[serial_num])
         )
 
-    # if coordinator.data.ensemble_power:
-    #     entities.extend(
-    #         EnchargeAggregatedPowerEntity(coordinator, description)
-    #         for description in ENCHARGE_AGG_POWER_SENSORS
-    #     )
+    _LOGGER.debug(f"Adding the following entities: {entities}")
 
-    if (data := coordinator.data.encharge_inventory) and conf_encharge_entity:
-        entities.extend(
-            EnchargeInventoryEntity(coordinator, description, encharge)
-            for description in ENCHARGE_INVENTORY_SENSORS
-            for encharge in data
-        )
-
-    # if (data := coordinator.data.encharge_power) and conf_encharge_entity:
-    #     entities.extend(
-    #         EnchargePowerEntity(coordinator, description, encharge)
-    #         for description in ENCHARGE_POWER_SENSORS
-    #         for encharge in data
-    #     )
-
-    _LOGGER.debug(f"Adding entities: {entities}")
     async_add_entities(entities)
 
 
@@ -568,8 +593,8 @@ class GatewaySensorEntity(GatewayCoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        gateway = self.coordinator.data
-        return self.entity_description.value_fn(gateway)
+        assert self.data is not None
+        return self.entity_description.value_fn(self.data)
 
 
 class InverterEntity(GatewaySensorEntity):
@@ -625,64 +650,28 @@ class ACBatteryEntity(GatewaySensorEntity):
     entity_description: ACBatterySensorEntityDescription
 
     @property
-    def native_value(self):
+    def native_value(self) -> int | float | None:
         """Return the state of the sensor."""
         ac_battery = self.data.ac_battery
         assert ac_battery is not None
-        if ac_battery is None:
-            return None
-
         return self.entity_description.value_fn(ac_battery)
 
 
-class EnchargeAggregatedEntity(GatewaySensorEntity):
-    """Aggregated Encharge entity."""
+class EnsembleSecctrlEntity(GatewaySensorEntity):
+    """Implementation of the Ensemble secctrl entity."""
+
+    entity_description: EnsembleSecctrlEntityDescription
 
     @property
-    def native_value(self) -> int | None:
+    def native_value(self) -> int | float | None:
         """Return the state of the sensor."""
-        data = self.data.ensemble_secctrl
-        if data is not None:
-            return data.get(self.entity_description.key)
-
-        return None
-
-
-# class EnchargeAggregatedPowerEntity(GatewaySystemSensorEntity):
-#     """Aggregated Encharge entity.
-
-#     # FIXME
-#     At the moment all devices of the power enpoint are aggregated.
-#     There is no check if the device is an actual encharge device.
-#     """
-
-#     @property
-#     def native_value(self) -> int:
-#         """Return the state of the sensor."""
-#         data = self.data.ensemble_power
-#         if isinstance(data, list) and len(data) > 0:
-#             real_power_agg = 0
-#             apparent_power_agg = 0
-#             for device in data:
-#                 real_power_agg += device["real_power_mw"]
-#                 apparent_power_agg += device["apparent_power_mva"]
-
-#             if self.entity_description.key == "real_power_mw":
-#                 return round(real_power_agg * 0.001)
-#             elif self.entity_description.key == "apparent_power_mva":
-#                 return round(apparent_power_agg * 0.001)
-#             elif self.entity_description.key == "charge":
-#                 power = round(real_power_agg * 0.001)
-#                 return (power * -1) if power < 0 else 0
-#             elif self.entity_description.key == "discharge":
-#                 power = round(real_power_agg * 0.001)
-#                 return power if power > 0 else 0
-
-#         return None
+        ensemble_secctrl = self.data.ensemble_secctrl
+        assert ensemble_secctrl is not None
+        return self.entity_description.value_fn(ensemble_secctrl)
 
 
 class EnsembleAggregatedPowerEntity(GatewaySensorEntity):
-    """Ensemble power aggregated entity."""
+    """Implementation of the aggregated Ensemble power entity."""
 
     entity_description: EnsemblePowerSensorEntityDescription
 
@@ -691,14 +680,11 @@ class EnsembleAggregatedPowerEntity(GatewaySensorEntity):
         """Return the state of the sensor."""
         ensemble_power = self.data.ensemle_power
         assert ensemble_power is not None
-        if ensemble_power is not None:
-            return self.entity_description.value_fn(ensemble_power)
-
-        return None
+        return self.entity_description.value_fn(ensemble_power)
 
 
-class EnchargeEntity(GatewaySensorBaseEntity):
-    """Encharge base entity."""
+class StorageSensorEntity(GatewaySensorEntity):
+    """Implementation of the storage entity."""
 
     def __init__(
             self,
@@ -723,27 +709,23 @@ class EnchargeEntity(GatewaySensorBaseEntity):
         )
 
 
-class EnchargeInventoryEntity(EnchargeEntity):
-    """Ensemble inventory encharge data."""
+class EnsembleInventoryEntity(StorageSensorEntity):
+    """Implementation of the Ensemble inventory entity."""
+
+    entity_description: EnsembleInventorySensorEntityDescription
 
     @property
     def native_value(self) -> int | None:
         """Return the state of the sensor."""
-        inventory = self.data.encharge_inventory.get(self._serial_number)
-        if inventory:
-            if self.entity_description.key == "calculated_capacity":
-                percentage = inventory.get("percentFull")
-                capacity = inventory.get("encharge_capacity")
-                if percentage and capacity:
-                    return round(capacity * (percentage * 0.01))
-            else:
-                return inventory.get(self.entity_description.key)
-
-        return None
+        ensemble_inventory = self.data.ensemle_inventory
+        assert ensemble_inventory is not None
+        return self.entity_description.value_fn(
+            ensemble_inventory[self._serial_number]
+        )
 
 
-class EnsemblePowerEntity(EnchargeEntity):
-    """Ensemble power entity."""
+class EnsemblePowerEntity(StorageSensorEntity):
+    """Implementation of the Ensemble power entity."""
 
     entity_description: EnsemblePowerSensorEntityDescription
 
@@ -752,9 +734,6 @@ class EnsemblePowerEntity(EnchargeEntity):
         """Return the state of the sensor."""
         ensemble_power = self.data.ensemle_power
         assert ensemble_power is not None
-        if ensemble_power is not None:
-            return self.entity_description.value_fn(
-                ensemble_power[self._serial_number]
-            )
-
-        return None
+        return self.entity_description.value_fn(
+            ensemble_power[self._serial_number]
+        )

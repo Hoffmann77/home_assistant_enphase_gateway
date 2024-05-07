@@ -19,8 +19,11 @@ from .descriptors import (
     RegexDescriptor,
 )
 
-from .models.ac_battery import ACBatteryStorage
-from .models.ensemble import EnchargePower, EnsemblePowerDevices
+from .models import (
+    ACBatteryStorage,
+    EnsemblePowerDevices,
+    EnsembleInventory,
+)
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -307,23 +310,23 @@ class EnvoyLegacy(BaseGateway):
     VERBOSE_NAME = "Envoy-R"
 
     production = RegexDescriptor(
+        r"<td>Currentl.*</td>\s+<td>\s*(\d+|\d+\.\d+)\s*(W|kW|MW)</td>",
         "production",
-        r"<td>Currentl.*</td>\s+<td>\s*(\d+|\d+\.\d+)\s*(W|kW|MW)</td>"
     )
 
     daily_production = RegexDescriptor(
+        r"<td>Today</td>\s+<td>\s*(\d+|\d+\.\d+)\s*(Wh|kWh|MWh)</td>",
         "production",
-        r"<td>Today</td>\s+<td>\s*(\d+|\d+\.\d+)\s*(Wh|kWh|MWh)</td>"
     )
 
     seven_days_production = RegexDescriptor(
+        r"<td>Past Week</td>\s+<td>\s*(\d+|\d+\.\d+)\s*(Wh|kWh|MWh)</td>",
         "production",
-        r"<td>Past Week</td>\s+<td>\s*(\d+|\d+\.\d+)\s*(Wh|kWh|MWh)</td>"
     )
 
     lifetime_production = RegexDescriptor(
+        r"<td>Since Installation</td>\s+<td>\s*(\d+|\d+\.\d+)\s*(Wh|kWh|MWh)</td>", # noqa
         "production",
-        r"<td>Since Installation</td>\s+<td>\s*(\d+|\d+\.\d+)\s*(Wh|kWh|MWh)</td>" # noqa
     )
 
 
@@ -332,20 +335,22 @@ class Envoy(BaseGateway):
 
     VERBOSE_NAME = "Envoy-R"
 
-    _ENDPOINT = "api/v1/production"
+    production = JsonDescriptor("wattsNow", "api/v1/production")
 
-    production = JsonDescriptor("wattsNow", _ENDPOINT)
+    daily_production = JsonDescriptor("wattHoursToday", "api/v1/production")
 
-    daily_production = JsonDescriptor("wattHoursToday", _ENDPOINT)
+    seven_days_production = JsonDescriptor(
+        "wattHoursSevenDays", "api/v1/production"
+    )
 
-    seven_days_production = JsonDescriptor("wattHoursSevenDays", _ENDPOINT)
+    lifetime_production = JsonDescriptor(
+        "wattHoursLifetime", "api/v1/production"
+    )
 
-    lifetime_production = JsonDescriptor("wattHoursLifetime", _ENDPOINT)
-
-    @gateway_property(required_endpoint=f"{_ENDPOINT}/inverters")
+    @gateway_property(required_endpoint="api/v1/production/inverters")
     def inverters(self):
         """Single inverter production data."""
-        inverters = self.data.get(self._ENDPOINT + "/inverters")
+        inverters = self.data.get("api/v1/production/inverters")
         if inverters:
             # def to_dt(inverter):
             #     inverter["lastReportDate"] = dt_util.utc_from_timestamp(
@@ -369,15 +374,17 @@ class EnvoyS(Envoy):
     # ensemble_power = JsonDescriptor("devices:", "ivp/ensemble/power")
 
     @gateway_property(required_endpoint="ivp/ensemble/inventory")
-    def encharge_inventory(self) -> dict | None:
+    def ensemble_inventory(self) -> EnsembleInventory | None:
         """Ensemble Encharge storages."""
         result = JsonDescriptor.resolve(
             "$.[?(@.type=='ENCHARGE')].devices",
             self.data.get("ivp/ensemble/inventory", {}),
         )
-        if result:
-            return {device["serial_num"]: device for device in result}
-
+        if result and isinstance(result, list):
+            return {
+                device["serial_num"]: EnsembleInventory.from_result(device)
+                for device in result
+            }
         return None
 
     @gateway_property(required_endpoint="ivp/ensemble/power")
@@ -386,24 +393,10 @@ class EnvoyS(Envoy):
         result = JsonDescriptor.resolve(
             "devices:", self.data.get("ivp/ensemble/power", {})
         )
-        if result and isinstance(result, list) and len(result) >= 1:
+        if result and isinstance(result, list):
             return EnsemblePowerDevices.from_result(result)
 
         return None
-
-    # @gateway_property(required_endpoint="ivp/ensemble/power")
-    # def encharge_power(self) -> EnchargePower | None:
-    #     """Encharge power data."""
-    #     result = JsonDescriptor.resolve(
-    #         "devices:", self.data.get("ivp/ensemble/power", {})
-    #     )
-    #     if result and isinstance(result, list):
-    #         return {
-    #             device["serial_num"]: EnchargePower.from_response(device)
-    #             for device in result
-    #         }
-
-    #     return None
 
     @gateway_property(required_endpoint="production.json")
     def ac_battery(self) -> ACBatteryStorage | None:
@@ -414,7 +407,7 @@ class EnvoyS(Envoy):
             self.data.get("production.json", {})
         )
         if data is not None:
-            return ACBatteryStorage.from_response(data)
+            return ACBatteryStorage.from_result(data)
 
         return None
 

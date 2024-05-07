@@ -35,11 +35,19 @@ class ACBatteryStorage:
         return None
 
     @classmethod
-    def from_response(cls, response: dict[str, Any]) -> ACBatteryStorage:
+    def from_result(cls, result: dict[str, Any]) -> ACBatteryStorage:
         """Instantiate class from response."""
         return cls(
-            percentFull=response["percentFull"],
-            whNow=response["whNow"],
-            wNow=response["wNow"],
-            state=response["state"],
+            percentFull=result["percentFull"],
+            whNow=result["whNow"],
+            wNow=result["wNow"],
+            state=result["state"],
         )
+
+    def check(self, name: str) -> bool:
+        """Check if the return value is valid."""
+        value = getattr(self, name, None)
+        if value is None:
+            return False
+
+        return True

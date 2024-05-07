@@ -49,7 +49,7 @@ STALE_TOKEN_THRESHOLD = timedelta(days=3).total_seconds()
 _LOGGER = logging.getLogger(__name__)
 
 
-class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
+class GatewayCoordinator(DataUpdateCoordinator):
     """DataUpdateCoordinator for gateway reader."""
 
     def __init__(
@@ -235,9 +235,3 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
                 ) from err
 
         raise RuntimeError("Unreachable code in _async_update_data")
-
-
-class GatewayCoordinator(GatewayReaderUpdateCoordinator):
-    """Copy of GatewayReaderUpdateCoordinator."""
-
-    pass
