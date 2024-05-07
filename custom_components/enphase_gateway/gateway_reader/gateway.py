@@ -20,7 +20,7 @@ from .descriptors import (
 )
 
 from .models.ac_battery import ACBatteryStorage
-from .models.ensemble import EnchargePower
+from .models.ensemble import EnchargePower, EnsemblePowerDevices
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -366,7 +366,7 @@ class EnvoyS(Envoy):
 
     ensemble_secctrl = JsonDescriptor("", "ivp/ensemble/secctrl")
 
-    ensemble_power = JsonDescriptor("devices:", "ivp/ensemble/power")
+    # ensemble_power = JsonDescriptor("devices:", "ivp/ensemble/power")
 
     @gateway_property(required_endpoint="ivp/ensemble/inventory")
     def encharge_inventory(self) -> dict | None:
@@ -381,18 +381,29 @@ class EnvoyS(Envoy):
         return None
 
     @gateway_property(required_endpoint="ivp/ensemble/power")
-    def encharge_power(self) -> EnchargePower | None:
-        """Encharge power data."""
+    def ensemble_power(self) -> EnsemblePowerDevices | None:
+        """Ensemble power data."""
         result = JsonDescriptor.resolve(
             "devices:", self.data.get("ivp/ensemble/power", {})
         )
-        if result and isinstance(result, list):
-            return {
-                device["serial_num"]: EnchargePower.from_response(device)
-                for device in result
-            }
+        if result and isinstance(result, list) and len(result) >= 1:
+            return EnsemblePowerDevices.from_result(result)
 
         return None
+
+    # @gateway_property(required_endpoint="ivp/ensemble/power")
+    # def encharge_power(self) -> EnchargePower | None:
+    #     """Encharge power data."""
+    #     result = JsonDescriptor.resolve(
+    #         "devices:", self.data.get("ivp/ensemble/power", {})
+    #     )
+    #     if result and isinstance(result, list):
+    #         return {
+    #             device["serial_num"]: EnchargePower.from_response(device)
+    #             for device in result
+    #         }
+
+    #     return None
 
     @gateway_property(required_endpoint="production.json")
     def ac_battery(self) -> ACBatteryStorage | None:

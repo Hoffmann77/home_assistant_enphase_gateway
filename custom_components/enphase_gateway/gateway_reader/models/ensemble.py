@@ -7,7 +7,62 @@ from typing import Any
 
 
 @dataclass(slots=True)
-class EnchargePower:
+class EnsemblePowerDevices:
+    """Model for the Encharge/IQ Storage power endpoint."""
+
+    devices: dict[str, EnsemblePowerDevice] = {}
+
+    @property
+    def apparent_power_mva_agg(self):
+        """Return the aggregated real_power_mva."""
+        power = 0
+        for device in self.devices.values():
+            power += device.apparent_power_mw
+
+        return power
+
+    @property
+    def real_power_mw_agg(self):
+        """Return the aggregated real_power_mw."""
+        power = 0
+        for device in self.devices.values():
+            power += device.real_power_mw
+
+        return power
+
+    @property
+    def charging_power_mw_agg(self):
+        """Return the aggregated charging power."""
+        if power := self.real_power_mw_agg is not None:
+            return (power * -1) if power < 0 else 0
+
+        return None
+
+    @property
+    def discharging_power_mw_agg(self):
+        """Return the aggregated discharging power."""
+        if power := self.real_power_mw_agg is not None:
+            return power if power > 0 else 0
+
+        return None
+
+    @classmethod
+    def from_result(cls, result: dict[str, Any]) -> EnsemblePowerDevices:
+        """Instantiate the model from the response."""
+        devices = {
+            device["serial_num"]: EnsemblePowerDevice.from_response(device)
+            for device in result
+        }
+
+        return cls(devices=devices)
+
+    def __getitem__(self, key):
+        """Magic method."""
+        return self.devices[key]
+
+
+@dataclass(slots=True)
+class EnsemblePowerDevice:
     """Model for the Encharge/IQ battery power."""
 
     apparent_power_mva: int
@@ -15,7 +70,7 @@ class EnchargePower:
     soc: int
 
     @property
-    def charging_power(self):
+    def charging_power_mw(self):
         """Return the charging power."""
         if power := self.real_power_mw is not None:
             return (power * -1) if power < 0 else 0
@@ -23,7 +78,7 @@ class EnchargePower:
         return None
 
     @property
-    def discharging_power(self):
+    def discharging_power_mw(self):
         """Return the discharging power."""
         if power := self.real_power_mw is not None:
             return power if power > 0 else 0
@@ -31,10 +86,10 @@ class EnchargePower:
         return None
 
     @classmethod
-    def from_response(cls, response: dict[str, Any]) -> EnchargePower:
-        """Instantiate class from the response."""
+    def from_result(cls, result: dict[str, Any]) -> EnsemblePowerDevice:
+        """Instantiate the model from the response."""
         return cls(
-            apparent_power_mva=response["apparent_power_mva"],
-            real_power_mw=response["real_power_mw"],
-            soc=response["soc"],
+            apparent_power_mva=result["apparent_power_mva"],
+            real_power_mw=result["real_power_mw"],
+            soc=result["soc"],
         )
