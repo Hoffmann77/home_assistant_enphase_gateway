@@ -3,6 +3,6 @@
 from .ac_battery import ACBatteryStorage
 from .ensemble import (
     EnsembleInventory,
-    EnsemblePowerDevice,
+    EnsemblePower,
     EnsemblePowerDevices,
 )
