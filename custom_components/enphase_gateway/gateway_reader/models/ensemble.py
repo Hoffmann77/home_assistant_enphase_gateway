@@ -42,7 +42,7 @@ class EnsembleInventory:
 class EnsemblePowerDevices:
     """Model for the Encharge/IQ Storage power endpoint."""
 
-    devices: dict[str, EnsemblePower] = {}
+    devices: dict[str, EnsemblePower]
 
     @property
     def apparent_power_mva_agg(self):
