@@ -612,7 +612,7 @@ class InverterEntity(GatewaySensorEntity):
         """Initialize Gateway inverter entity."""
         super().__init__(coordinator, description)
         self._serial_number = serial_number
-        self._attr_unique_id = f"{serial_number}_{description.key}"
+        # self._attr_unique_id = f"{serial_number}_{description.key}"
         if as_device:
             self._attr_device_info = DeviceInfo(
                 identifiers={(DOMAIN, str(self._serial_number))},
@@ -621,6 +621,17 @@ class InverterEntity(GatewaySensorEntity):
                 model="Inverter",
                 via_device=(DOMAIN, self.gateway_serial_num),
             )
+
+    @property
+    def unique_id(self) -> str:
+        """Return the entity's unique_id."""
+        # TODO: improve unique ids.
+        # Originally there was only one inverter sensor, so we don't want to
+        # break existing installations by changing the unique_id.
+        if self.entity_description.key == "lastReportWatts":
+            return self._serial_number
+        else:
+            return f"{self._serial_number}_{self.entity_description.key}"
 
     @property
     def name(self):
