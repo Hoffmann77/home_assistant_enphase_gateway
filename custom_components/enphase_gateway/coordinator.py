@@ -228,7 +228,7 @@ class GatewayCoordinator(DataUpdateCoordinator):
             except httpx.HTTPError as err:
                 now = datetime.now(timezone.utc)
                 if _try == 0 and now.hour == 23 and now.minute == 0:
-                    asyncio_sleep(10)
+                    asyncio_sleep(20)
                     continue
                 raise UpdateFailed(
                     f"Error communicating with API: {err}"

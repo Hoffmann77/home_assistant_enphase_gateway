@@ -524,6 +524,7 @@ class EnvoySMetered(EnvoyS):
             self.data.get("production.json", {})
         )
 
+    # HINT: Currently disabled due to inaccurate values.
     # @gateway_property(required_endpoint="production.json", cache=0)
     # def seven_days_production(self):
     #     """Return the daily energy production."""
@@ -567,6 +568,7 @@ class EnvoySMetered(EnvoyS):
             self.data.get("production.json", {})
         )
 
+    # HINT: Currently disabled due to inaccurate values.
     # @gateway_property(required_endpoint="production.json", cache=0)
     # def seven_days_consumption(self):
     #     """Return the daily energy production."""
@@ -662,6 +664,7 @@ class EnvoySMeteredCtDisabled(EnvoyS):
             self.data.get("production.json", {})
         )
 
+    # HINT: Currently disabled due to inaccurate values.
     # @gateway_property(required_endpoint="production.json")
     # def seven_days_production(self):
     #     """Last seven days energy production."""
