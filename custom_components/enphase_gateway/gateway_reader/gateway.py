@@ -8,13 +8,11 @@ from typing import Callable
 import xmltodict
 from httpx import Response
 
-from homeassistant.util import dt as dt_util
-
 from .const import AVAILABLE_PROPERTIES
 from .endpoint import GatewayEndpoint
 from .descriptors import (
     PropertyDescriptor,
-    ResponseDescriptor,
+    # ResponseDescriptor,
     JsonDescriptor,
     RegexDescriptor,
 )
