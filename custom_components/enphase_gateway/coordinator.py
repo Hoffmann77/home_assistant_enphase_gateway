@@ -226,6 +226,7 @@ class GatewayCoordinator(DataUpdateCoordinator):
                 raise ConfigEntryAuthFailed from err
 
             except httpx.HTTPError as err:
+                # TODO: does this error occur at local time or utc?
                 now = datetime.now(timezone.utc)
                 if _try == 0 and now.hour == 23 and now.minute == 0:
                     asyncio_sleep(20)

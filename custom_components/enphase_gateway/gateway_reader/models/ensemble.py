@@ -49,7 +49,7 @@ class EnsemblePowerDevices:
         """Return the aggregated real_power_mva."""
         power = 0
         for device in self.devices.values():
-            power += device.apparent_power_mw
+            power += device.apparent_power_mva
 
         return power
 
@@ -65,7 +65,7 @@ class EnsemblePowerDevices:
     @property
     def charging_power_mw_agg(self):
         """Return the aggregated charging power."""
-        if power := self.real_power_mw_agg is not None:
+        if (power := self.real_power_mw_agg) is not None:
             return (power * -1) if power < 0 else 0
 
         return None
@@ -73,7 +73,7 @@ class EnsemblePowerDevices:
     @property
     def discharging_power_mw_agg(self):
         """Return the aggregated discharging power."""
-        if power := self.real_power_mw_agg is not None:
+        if (power := self.real_power_mw_agg) is not None:
             return power if power > 0 else 0
 
         return None
@@ -112,7 +112,7 @@ class EnsemblePower:
     @property
     def charging_power_mw(self):
         """Return the charging power."""
-        if power := self.real_power_mw is not None:
+        if (power := self.real_power_mw) is not None:
             return (power * -1) if power < 0 else 0
 
         return None
@@ -120,7 +120,7 @@ class EnsemblePower:
     @property
     def discharging_power_mw(self):
         """Return the discharging power."""
-        if power := self.real_power_mw is not None:
+        if (power := self.real_power_mw) is not None:
             return power if power > 0 else 0
 
         return None

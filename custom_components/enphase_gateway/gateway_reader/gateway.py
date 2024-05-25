@@ -461,6 +461,17 @@ class EnvoySMetered(EnvoyS):
         _LOGGER.debug("Probe: 'ivp_meters_probe' finished")
 
     @gateway_property(required_endpoint="ivp/meters/readings")
+    def grid_power(self):
+        """Return grid power."""
+        if eid := self.net_consumption_meter:
+            return JsonDescriptor.resolve(
+                f"$.[?(@.eid=={eid})].activePower",
+                self.data.get("ivp/meters/readings", {})
+            )
+
+        return None
+
+    @gateway_property(required_endpoint="ivp/meters/readings")
     def grid_import(self):
         """Return grid import."""
         if eid := self.net_consumption_meter:
@@ -474,7 +485,7 @@ class EnvoySMetered(EnvoyS):
         return None
 
     @gateway_property(required_endpoint="ivp/meters/readings")
-    def grid_import_lifetime(self):
+    def lifetime_grid_net_import(self):
         """Return lifetime grid import."""
         if eid := self.net_consumption_meter:
             return JsonDescriptor.resolve(
@@ -498,7 +509,7 @@ class EnvoySMetered(EnvoyS):
         return None
 
     @gateway_property(required_endpoint="ivp/meters/readings")
-    def grid_export_lifetime(self):
+    def lifetime_grid_net_export(self):
         """Return lifetime grid export."""
         if eid := self.net_consumption_meter:
             return JsonDescriptor.resolve(
@@ -524,14 +535,15 @@ class EnvoySMetered(EnvoyS):
             self.data.get("production.json", {})
         )
 
-    # HINT: Currently disabled due to inaccurate values.
-    # @gateway_property(required_endpoint="production.json", cache=0)
-    # def seven_days_production(self):
-    #     """Return the daily energy production."""
-    #     return JsonDescriptor.resolve(
-    #         self._PRODUCTION_JSON.format("whLastSevenDays"),
-    #         self.data.get("production.json", {}),
-    #     )
+    @gateway_property(required_endpoint="production.json", cache=0)
+    def seven_days_production(self):
+        """Return the daily energy production."""
+        # HINT: Currently disabled due to inaccurate values.
+        return None
+        return JsonDescriptor.resolve(
+            self._PRODUCTION_JSON.format("whLastSevenDays"),
+            self.data.get("production.json", {}),
+        )
 
     @gateway_property(required_endpoint="ivp/meters/readings")
     def lifetime_production(self):
@@ -568,14 +580,15 @@ class EnvoySMetered(EnvoyS):
             self.data.get("production.json", {})
         )
 
-    # HINT: Currently disabled due to inaccurate values.
-    # @gateway_property(required_endpoint="production.json", cache=0)
-    # def seven_days_consumption(self):
-    #     """Return the daily energy production."""
-    #     return JsonDescriptor.resolve(
-    #         self._TOTAL_CONSUMPTION_JSON + ".whLastSevenDays",
-    #         self.data.get("production.json", {}),
-    #     )
+    @gateway_property(required_endpoint="production.json", cache=0)
+    def seven_days_consumption(self):
+        """Return the daily energy production."""
+        # HINT: Currently disabled due to inaccurate values.
+        return None
+        return JsonDescriptor.resolve(
+            self._TOTAL_CONSUMPTION_JSON + ".whLastSevenDays",
+            self.data.get("production.json", {}),
+        )
 
     @gateway_property(required_endpoint="ivp/meters/readings")
     def lifetime_consumption(self):
@@ -623,6 +636,8 @@ class EnvoySMeteredCtDisabled(EnvoyS):
         "production.json",
     )
 
+    # HINT: Currently disabled due to inaccurate values.
+    seven_days_consumption = None
     # seven_days_consumption = JsonDescriptor(
     #     _TOTAL_CONSUMPTION + ".whLastSevenDays",
     #     "production.json",
