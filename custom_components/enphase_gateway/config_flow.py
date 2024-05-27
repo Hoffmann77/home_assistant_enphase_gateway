@@ -25,7 +25,7 @@ from .exceptions import CannotConnect
 from .const import (
     DOMAIN, CONF_SERIAL_NUM, CONF_CACHE_TOKEN, CONF_USE_LEGACY_NAME,
     CONF_ENCHARGE_ENTITIES, CONFIG_FLOW_USER_ERROR, CONF_INVERTERS,
-    ALLOWED_ENDPOINTS,
+    ALLOWED_ENDPOINTS, CONF_DATA_UPDATE_INTERVAL
 )
 
 
@@ -56,6 +56,7 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Enphase Gateway."""
 
     VERSION = 2
+    MINOR_VERSION = 1
 
     def __init__(self):
         """Initialize an gateway flow."""
@@ -279,20 +280,17 @@ class GatewayConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def _generate_shema_user_step(self):
         """Generate schema."""
-        schema = {}
-
         if self.ip_address:
-            schema[vol.Required(CONF_HOST, default=self.ip_address)] = vol.In(
-                [self.ip_address]
-            )
+            ip_address_val = vol.In([self.ip_address])
         else:
-            schema[vol.Required(CONF_HOST)] = str
+            ip_address_val = str
 
-        schema[
-            vol.Optional(CONF_USERNAME, default=self.username or "envoy")
-        ] = str
-        schema[vol.Optional(CONF_PASSWORD, default="")] = str
-        schema[vol.Optional(CONF_USE_LEGACY_NAME, default=False)] = bool
+        schema = {
+            vol.Required(CONF_HOST, default=self.ip_address): ip_address_val,
+            vol.Optional(CONF_USERNAME, default=self.username or "envoy"): str,
+            vol.Optional(CONF_PASSWORD, default=""): str,
+            vol.Optional(CONF_USE_LEGACY_NAME, default=False): bool,
+        }
         return vol.Schema(schema)
 
     @callback
@@ -377,16 +375,22 @@ class GatewayOptionsFlow(config_entries.OptionsFlow):
         """Generate schema."""
         options = self.config_entry.options
         options_keys = options.keys()
-        options_inverters = options.get(CONF_INVERTERS, "disabled")
+        default_inverters = options.get(CONF_INVERTERS, "disabled")
+        # default_data_update_interval = options.get(
+        #     CONF_DATA_UPDATE_INTERVAL, "moderate"
+        # )
         schema = {
-            vol.Optional(CONF_INVERTERS, default=options_inverters): selector(
-                {
-                    "select": {
-                        "translation_key": CONF_INVERTERS,
-                        "mode": "dropdown",
-                        "options": ["gateway_sensor", "device", "disabled"],
+            vol.Optional(
+                CONF_INVERTERS, default=default_inverters): selector(
+                    {
+                        "select": {
+                            "translation_key": CONF_INVERTERS,
+                            "mode": "dropdown",
+                            "options": [
+                                "gateway_sensor", "device", "disabled"
+                            ],
+                        }
                     }
-                }
             ),
         }
         if CONF_ENCHARGE_ENTITIES in options_keys:

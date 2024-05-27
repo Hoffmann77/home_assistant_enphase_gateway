@@ -5,6 +5,7 @@ import logging
 from textwrap import dedent
 
 from jsonpath import jsonpath
+from jsonpath_ng.ext import parse
 
 from .endpoint import GatewayEndpoint
 
@@ -111,11 +112,63 @@ class JsonDescriptor(BaseDescriptor):
         _LOGGER.debug(f"The configured jsonpath: {path}, did return {result}")
         return result
 
+    def resolve_ng(
+            cls,
+            path: str,
+            data: dict,
+            default: str | int | float = None,
+    ):
+        """Classmethod to resolve a given jsonpath using jsonpath-ng."""
+        if path == "":
+            return data
+
+        jsonpath_expr = parse(dedent(path))
+        result = [match.value for match in jsonpath_expr.find(data)]
+
+        if result == []:
+            _LOGGER.debug(
+                f"The configured jsonpath: {path}, did not return anything!"
+            )
+            return default
+
+        if isinstance(result, list) and len(result) == 1:
+            result = result[0]
+
+
+class ModelDescriptor(BaseDescriptor):
+    
+    def __init__(
+            self,
+            model_cls,
+            jsonpath_expr: str,
+            required_endpoint: str | None = None,
+            cache: int = 0,
+    ) -> None:
+        super().__init__(required_endpoint, cache)
+        self.model_cls = model_cls
+        self.jsonpath_expr = jsonpath_expr
+        
+    def __get__(self, obj, objtype=None):
+        """Magic method. Resolve the jasonpath expression."""
+        if self._required_endpoint:
+            data = obj.data.get(self._required_endpoint, {})
+        else:
+            data = obj.data or {}
+
+        return self.resolve(self.jsonpath_expr, data)
+    
+    def resolve(cls, jsonpath_expr, model_cls, data):
+        
+        result = JsonDescriptor.resolve(jsonpath_expr, data)
+        if result is not None:
+            return model_cls.from_result(result)
+        
+
 
 class RegexDescriptor(BaseDescriptor):
     """Regex gateway property descriptor."""
 
-    def __init__(self, required_endpoint, regex, cache: int = 0):
+    def __init__(self, regex, required_endpoint, cache: int = 0):
         super().__init__(required_endpoint, cache)
         self._regex = regex
 

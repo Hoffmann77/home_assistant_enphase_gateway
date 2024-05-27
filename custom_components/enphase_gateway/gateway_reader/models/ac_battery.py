@@ -1,26 +1,53 @@
-"""Models."""
+"""Model for the legacy Enphase AC Battery."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
 
 # from ..descriptors import JsonDescriptor
+# from .common import BaseModel
 
 
-class BaseModel:
-    """Base date model."""
+@dataclass(slots=True)
+class ACBatteryStorage:
+    """Model for the legacy Enphase AC Battery."""
 
-    def __init__(self, data):
-        self.data = data
+    percentFull = int
+    whNow = int
+    wNow = int
+    state = str
 
-    def register_property(x, y):
-        """Register property."""
-        pass
+    @property
+    def charging_power(self):
+        """Return the charging power."""
+        if power := self.wNow is not None:
+            return (power * -1) if power < 0 else 0
 
+        return None
 
-class ACBattery(BaseModel):
-    """AC battery data."""
+    @property
+    def discharging_power(self):
+        """Return the discharging power."""
+        if power := self.wNow is not None:
+            return power if power > 0 else 0
 
-    # percentFull = JsonDescriptor("percentFull")
+        return None
 
-    # wNow = JsonDescriptor("wNow")
+    @classmethod
+    def from_result(cls, result: dict[str, Any]) -> ACBatteryStorage:
+        """Instantiate class from response."""
+        return cls(
+            percentFull=result["percentFull"],
+            whNow=result["whNow"],
+            wNow=result["wNow"],
+            state=result["state"],
+        )
 
-    # whNow = JsonDescriptor("whNow")
+    def check(self, name: str) -> bool:
+        """Check if the return value is valid."""
+        value = getattr(self, name, None)
+        if value is None:
+            return False
 
-    # state = JsonDescriptor("state")
+        return True

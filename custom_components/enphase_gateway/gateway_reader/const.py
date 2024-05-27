@@ -10,6 +10,6 @@ AVAILABLE_PROPERTIES = {
     "lifetime_production", "consumption", "daily_consumption",
     "seven_days_consumption", "lifetime_consumption", "inverters_production",
     "grid_status", "ensemble_power", "ensemble_submod", "ensemble_secctrl",
-    "battery_storage", "grid_import", "grid_import_lifetime", "grid_export",
-    "grid_export_lifetime",
+    "battery_storage", "grid_power", "grid_import", "lifetime_grid_net_import",
+    "grid_export", "lifetime_grid_net_export"
 }

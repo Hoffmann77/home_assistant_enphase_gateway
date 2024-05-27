@@ -11,8 +11,8 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntityDescription
 )
 
-from .const import DOMAIN, ICON
-# from .coordinator import GatewayReaderUpdateCoordinator
+from .const import DOMAIN
+# from .coordinator import GatewayCoordinator
 # from .entity import GatewayBinarySensorBaseEntity
 
 
@@ -71,11 +71,6 @@ class EnvoyGridStatusEntity(CoordinatorEntity, BinarySensorEntity):
         self._device_name = device_name
         self._device_serial_number = device_serial_number
         CoordinatorEntity.__init__(self, coordinator)
-
-    @property
-    def icon(self):
-        """Icon to use in the frontend, if any."""
-        return ICON
 
     @property
     def name(self):

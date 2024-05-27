@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, TYPE_CHECKING
+from asyncio import sleep as asyncio_sleep
 
 import httpx
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
@@ -48,7 +49,7 @@ STALE_TOKEN_THRESHOLD = timedelta(days=3).total_seconds()
 _LOGGER = logging.getLogger(__name__)
 
 
-class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
+class GatewayCoordinator(DataUpdateCoordinator):
     """DataUpdateCoordinator for gateway reader."""
 
     def __init__(
@@ -78,6 +79,18 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
             update_interval=SCAN_INTERVAL,
             # always_update=False, # TODO: Added in ha 2023.9
         )
+
+    @staticmethod
+    async def async_remove_store(
+        cls, hass: HomeAssistant, entry: ConfigEntry
+    ) -> None:
+        """Remove all data from the store."""
+        store = Store(
+            hass,
+            STORAGE_VERSION,
+            ".".join([STORAGE_KEY, entry.entry_id]),
+        )
+        await store.async_remove()
 
     async def _async_setup_and_authenticate(self) -> None:
         """Set up the gateway reader and authenticate."""
@@ -213,6 +226,11 @@ class GatewayReaderUpdateCoordinator(DataUpdateCoordinator):
                 raise ConfigEntryAuthFailed from err
 
             except httpx.HTTPError as err:
+                # TODO: does this error occur at local time or utc?
+                now = datetime.now(timezone.utc)
+                if _try == 0 and now.hour == 23 and now.minute == 0:
+                    asyncio_sleep(20)
+                    continue
                 raise UpdateFailed(
                     f"Error communicating with API: {err}"
                 ) from err

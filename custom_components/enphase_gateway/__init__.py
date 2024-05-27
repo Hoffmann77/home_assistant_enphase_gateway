@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.httpx_client import get_async_client
 
 from .gateway_reader import GatewayReader
-from .coordinator import GatewayReaderUpdateCoordinator
+from .coordinator import GatewayCoordinator
 from .const import (
     DOMAIN, PLATFORMS, CONF_ENCHARGE_ENTITIES, CONF_INVERTERS
 )
@@ -23,7 +23,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Enphase Gateway from a config entry."""
     host = entry.data[CONF_HOST]
     reader = GatewayReader(host, get_async_client(hass, verify_ssl=False))
-    coordinator = GatewayReaderUpdateCoordinator(hass, reader, entry)
+    coordinator = GatewayCoordinator(hass, reader, entry)
 
     await coordinator.async_config_entry_first_refresh()
 
@@ -43,6 +43,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Handle options update."""
     await hass.config_entries.async_reload(entry.entry_id)
+    # !!! Prototype for deleting inverter entities after an options flow.
+    # registry = entity_registry.async_get(hass)
+    # entities = entity_registry.async_entries_for_config_entry(
+    #     registry, entry.entry_id
+    # )
+    # for entity in entities:
+    #     if entity.inverter_type != entry.options[CONF_INVERTERS]:
+    #         registry.async_remove(entity.entity_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -50,6 +58,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload:
         hass.data[DOMAIN].pop(entry.entry_id)
+        await GatewayCoordinator.async_remove_store(hass, entry)
     return unload
 
 
