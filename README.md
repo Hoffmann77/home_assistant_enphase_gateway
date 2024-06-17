@@ -18,7 +18,7 @@ Please be aware that this custom integration **does not** overwrite the "enphase
 5. Add the integration through the home assistant configuration flow
 
 
-# Supported Devices
+## Supported Devices
 ### Gateways:
   - Envoy-S Metered (with CT's enabled or disabled)
   - Envoy-S Standard
@@ -43,14 +43,18 @@ Please be aware that this custom integration **does not** overwrite the "enphase
 
 \* Currently in beta phase
 
-### Battery storages *: 
-  - AC-Battery (supported but not tested yet)
-  - ENCHARGE 3T
-  - ENCHARGE 10T (supported but not tested yet)
+### Batteries:
 
-#### Metrics:
+  - Legacy Enphase batteries: AC Battery *
+  - 1st-generation IQ Batteries: IQ Battery 3/10
+  - 2nd-generation IQ Batteries: IQ Battery 3T/10T
+  - 3rd-generation IQ Batteries: IQ Battery 5P *
 
-|  | AC-Battery | ENCHARGE storage |
+\* These devices are supported but not tested
+
+#### Available entities:
+
+|  | AC Battery | IQ Battery |
 |:----|:----:|:----:|
 | Power | :heavy_check_mark: | :heavy_check_mark: |
 | Charging power | :heavy_check_mark: | :heavy_check_mark: |
@@ -58,8 +62,9 @@ Please be aware that this custom integration **does not** overwrite the "enphase
 | Apparent power | :x: | :heavy_check_mark: |
 | Current energy capacity | :heavy_check_mark: | :heavy_check_mark: |
 | State of charge | :heavy_check_mark: | :heavy_check_mark: |
+| Temperature | :x: | :heavy_check_mark: |
 
-#### \* Currently in beta phase
+
 
 # Usage
 
